@@ -7,8 +7,11 @@ Group:		Daemons
 URL:		http://www.varnish-cache.org/
 Source0:	http://downloads.sourceforge.net/varnish/%{name}-%{version}.tar.gz
 # Source0-md5:	d905f63a6665224c370154eb006ca4cc
+Source1:	%{name}.init
+Source2:	%{name}.sysconfig
 BuildRequires:	autoconf
 BuildRequires:	automake
+BuildRequires:	libstdc++-devel
 BuildRequires:	libtool
 BuildRequires:	ncurses-devel
 Requires(post):	/sbin/ldconfig
@@ -54,7 +57,10 @@ rm -rf $RPM_BUILD_ROOT
 %{__make} install \
 	DESTDIR=$RPM_BUILD_ROOT
 
-install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{init.d,sysconfig},/var/lib/varnish}
+install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{rc.d/init.d,sysconfig},/var/lib/varnish}
+install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
+install %{SOURCE2} $RPM_BUILD_ROOT/etc/sysconfig/varnish
+install etc/vcl.conf $RPM_BUILD_ROOT%{_sysconfdir}/vcl.conf
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -75,9 +81,9 @@ fi
 %files
 %defattr(644,root,root,755)
 %doc INSTALL LICENSE README ChangeLog
-#%config(noreplace) %{_sysconfdir}/vcl.conf
-#%config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
-#%attr(754,root,root) /etc/rc.d/init.d/varnish
+%config(noreplace) %{_sysconfdir}/vcl.conf
+%config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
+%attr(754,root,root) /etc/rc.d/init.d/varnish
 %attr(755,root,root) %{_sbindir}/varnishd
 %attr(755,root,root) %{_bindir}/varnishhist
 %attr(755,root,root) %{_bindir}/varnishlog
