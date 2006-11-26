@@ -81,6 +81,7 @@ fi
 %files
 %defattr(644,root,root,755)
 %doc INSTALL LICENSE README ChangeLog
+%dir %{_sysconfdir}
 %config(noreplace) %{_sysconfdir}/vcl.conf
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
 %attr(754,root,root) /etc/rc.d/init.d/varnish
