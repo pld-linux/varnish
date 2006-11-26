@@ -17,47 +17,34 @@ BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 %define		_sysconfdir	/etc/%{name}
 
 %description
-This is the Varnish high-performance HTTP accelerator. Documentation
-and additional information about Varnish is available on the following
-web sites: http://www.varnish-cache.org/ Official web site
-http://varnish.projects.linpro.no/ Developer site and wiki
+The goal of the Varnish project is to develop a state-of-the-art,
+high-performance HTTP accelerator.
 
-Technical questions about Varnish and this release should be addressed
-to <varnish-dev@projects.linpro.no>.
-
-Questions about commercial support and services related to Varnish
-should be addressed to <varnish@linpro.no>.
-
-Copyright (c) 2006 Verdens Gang AS Copyright (c) 2006 Linpro AS All
-rights reserved. Author: Poul-Henning Kamp <phk@phk.freebsd.dk>
+Varnish is targeted primarily at the FreeBSD 6 and Linux 2.6
+platforms, and will take full advantage of the advanced I/O features
+offered by these operating systems.
 
 %package devel
-Summary:	Header files for ... library
+Summary:	Header files for varnish library
 Group:		Development/Libraries
-# if base package contains shared library for which these headers are
-#Requires:	%{name} = %{version}-%{release}
-# if -libs package contains shared library for which these headers are
-#Requires:	%{name}-libs = %{version}-%{release}
+Requires:	%{name} = %{version}-%{release}
 
 %description devel
-Header files for ... library.
+Header files for varnish library.
 
 %package static
-Summary:	Static ... library
-Summary(pl):	Statyczna biblioteka ...
+Summary:	Static varnish library
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
 
 %description static
-Static ... library.
-
-%description static -l pl
-Statyczna biblioteka ....
+Static varnish library.
 
 %prep
 %setup -q
 
 %build
+export CPPFLAGS="-I/usr/include/ncurses"
 ./autogen.sh
 %configure
 %{__make}
