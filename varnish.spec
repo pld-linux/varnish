@@ -49,29 +49,12 @@ export CPPFLAGS="-I/usr/include/ncurses"
 %configure
 %{__make}
 
-sed -e ' s/8080/80/g ' etc/vcl.conf > redhat/vcl.conf
-
 %install
 rm -rf $RPM_BUILD_ROOT
 %{__make} install \
 	DESTDIR=$RPM_BUILD_ROOT
 
-install -d $RPM_BUILD_ROOT%{_sbindir}
-install -d $RPM_BUILD_ROOT%{_docdir}/%{name}-%{version}
-install -d $RPM_BUILD_ROOT%{_sysconfdir}/varnish
-install -d $RPM_BUILD_ROOT%{_sysconfdir}/init.d
-install -d $RPM_BUILD_ROOT/etc/sysconfig
-install -d $RPM_BUILD_ROOT/var/lib/varnish
-
-install INSTALL $RPM_BUILD_ROOT%{_docdir}/%{name}-%{version}/INSTALL
-install LICENSE $RPM_BUILD_ROOT%{_docdir}/%{name}-%{version}/LICENSE
-install README $RPM_BUILD_ROOT%{_docdir}/%{name}-%{version}/README
-install ChangeLog $RPM_BUILD_ROOT%{_docdir}/%{name}-%{version}/ChangeLog
-install redhat/README.redhat $RPM_BUILD_ROOT%{_docdir}/%{name}-%{version}/README.redhat
-install redhat/vcl.conf $RPM_BUILD_ROOT%{_docdir}/%{name}-%{version}/vcl.example.conf
-install redhat/vcl.conf $RPM_BUILD_ROOT%{_sysconfdir}/varnish/vcl.conf
-install redhat/varnish.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/varnish
-install redhat/varnish.initrc $RPM_BUILD_ROOT%{_sysconfdir}/init.d/varnish
+install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{init.d,sysconfig},/var/lib/varnish}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -91,10 +74,10 @@ fi
 
 %files
 %defattr(644,root,root,755)
-%doc %{_docdir}/%{name}-%{version}
-%config(noreplace) %{_sysconfdir}/vcl.conf
-%config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
-%attr(754,root,root) /etc/rc.d/init.d/varnish
+%doc INSTALL LICENSE README ChangeLog
+#%config(noreplace) %{_sysconfdir}/vcl.conf
+#%config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
+#%attr(754,root,root) /etc/rc.d/init.d/varnish
 %attr(755,root,root) %{_sbindir}/varnishd
 %attr(755,root,root) %{_bindir}/varnishhist
 %attr(755,root,root) %{_bindir}/varnishlog
@@ -104,7 +87,7 @@ fi
 %attr(755,root,root) %{_libdir}/libvarnish.so.0.0.0
 %attr(755,root,root) %{_libdir}/libvarnishapi.so.0.0.0
 %attr(755,root,root) %{_libdir}/libvcl.so.0.0.0
-%{_var}/lib/varnish
+/var/lib/varnish
 %{_mandir}/man1/varnishd.1*
 %{_mandir}/man1/varnishhist.1*
 %{_mandir}/man1/varnishlog.1*
