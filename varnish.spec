@@ -5,7 +5,7 @@ Release:	0.7
 License:	BSD-like
 Group:		Daemons
 URL:		http://www.varnish-cache.org/
-Source0:	http://downloads.sourceforge.net/varnish/%{name}-%{version}.tar.gz
+Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
 # Source0-md5:	d905f63a6665224c370154eb006ca4cc
 Source1:	%{name}.init
 Source2:	%{name}.sysconfig
