@@ -1,18 +1,19 @@
-Summary:	Varnish is a high-performance HTTP accelerator
+Summary:	Varnish - a high-performance HTTP accelerator
+Summary(pl):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	1.0.2
 Release:	0.7
 License:	BSD-like
 Group:		Daemons
-URL:		http://www.varnish-cache.org/
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
 # Source0-md5:	d905f63a6665224c370154eb006ca4cc
 Source1:	%{name}.init
 Source2:	%{name}.sysconfig
+URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
 BuildRequires:	libstdc++-devel
-BuildRequires:	libtool
+BuildRequires:	libtool >= 2:1.5
 BuildRequires:	ncurses-devel
 Requires(post):	/sbin/ldconfig
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
@@ -27,21 +28,36 @@ Varnish is targeted primarily at the FreeBSD 6 and Linux 2.6
 platforms, and will take full advantage of the advanced I/O features
 offered by these operating systems.
 
+%description -l pl
+Celem projektu Varnish jest stworzenie wydajnego akceleratora HTTP.
+
+Varnish jest tworzony g³ównie z my¶l± o platformach FreeBSD 6 i Linux
+2.6 i bêdzie wykorzystywa³ w pe³ni zaawansowane mo¿liwo¶ci we/we
+oferowane przez te systemy operacyjne.
+
 %package devel
 Summary:	Header files for varnish library
+Summary(pl):	Pliki nag³ówkowe biblioteki varnish
 Group:		Development/Libraries
 Requires:	%{name} = %{version}-%{release}
 
 %description devel
 Header files for varnish library.
 
+%description devel -l pl
+Pliki nag³ówkowe biblioteki varnish.
+
 %package static
 Summary:	Static varnish library
+Summary(pl):	Statyczna biblioteka varnish
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
 
 %description static
 Static varnish library.
+
+%description static -l pl
+Statyczna biblioteka varnish.
 
 %prep
 %setup -q
@@ -105,12 +121,12 @@ fi
 
 %files devel
 %defattr(644,root,root,755)
-%{_libdir}/libvarnish.la
-%{_libdir}/libvarnishapi.la
-%{_libdir}/libvcl.la
 %attr(755,root,root) %{_libdir}/libvarnish.so
 %attr(755,root,root) %{_libdir}/libvarnishapi.so
 %attr(755,root,root) %{_libdir}/libvcl.so
+%{_libdir}/libvarnish.la
+%{_libdir}/libvarnishapi.la
+%{_libdir}/libvcl.la
 
 %files static
 %defattr(644,root,root,755)
