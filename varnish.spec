@@ -70,10 +70,11 @@ export CPPFLAGS="-I/usr/include/ncurses"
 
 %install
 rm -rf $RPM_BUILD_ROOT
+install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{rc.d/init.d,sysconfig},/var/lib/varnish}
+
 %{__make} install \
 	DESTDIR=$RPM_BUILD_ROOT
 
-install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{rc.d/init.d,sysconfig},/var/lib/varnish}
 install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
 install %{SOURCE2} $RPM_BUILD_ROOT/etc/sysconfig/varnish
 install etc/vcl.conf $RPM_BUILD_ROOT%{_sysconfdir}/vcl.conf
