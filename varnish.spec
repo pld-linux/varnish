@@ -2,13 +2,14 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	1.0.2
-Release:	0.7
+Release:	0.8
 License:	BSD-like
 Group:		Daemons
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
 # Source0-md5:	d905f63a6665224c370154eb006ca4cc
 Source1:	%{name}.init
 Source2:	%{name}.sysconfig
+Source3:	%{name}.conf
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
@@ -70,14 +71,16 @@ export CPPFLAGS="-I/usr/include/ncurses"
 
 %install
 rm -rf $RPM_BUILD_ROOT
-install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{rc.d/init.d,sysconfig},/var/lib/varnish}
 
 %{__make} install \
 	DESTDIR=$RPM_BUILD_ROOT
 
+# make dirs after make install to know which ones needs spec and which ones make install
+install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{rc.d/init.d,sysconfig},/var/lib/varnish}
+
 install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
 install %{SOURCE2} $RPM_BUILD_ROOT/etc/sysconfig/varnish
-#install etc/vcl.conf $RPM_BUILD_ROOT%{_sysconfdir}/vcl.conf
+install %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/vcl.conf
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -99,7 +102,7 @@ fi
 %defattr(644,root,root,755)
 %doc INSTALL LICENSE README ChangeLog
 %dir %{_sysconfdir}
-#%config(noreplace) %{_sysconfdir}/vcl.conf
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/vcl.conf
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
 %attr(754,root,root) /etc/rc.d/init.d/varnish
 %attr(755,root,root) %{_sbindir}/varnishd
