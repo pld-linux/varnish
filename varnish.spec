@@ -77,7 +77,7 @@ install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{rc.d/init.d,sysconfig},/var/lib/
 
 install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
 install %{SOURCE2} $RPM_BUILD_ROOT/etc/sysconfig/varnish
-install etc/vcl.conf $RPM_BUILD_ROOT%{_sysconfdir}/vcl.conf
+#install etc/vcl.conf $RPM_BUILD_ROOT%{_sysconfdir}/vcl.conf
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -99,7 +99,7 @@ fi
 %defattr(644,root,root,755)
 %doc INSTALL LICENSE README ChangeLog
 %dir %{_sysconfdir}
-%config(noreplace) %{_sysconfdir}/vcl.conf
+#%config(noreplace) %{_sysconfdir}/vcl.conf
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
 %attr(754,root,root) /etc/rc.d/init.d/varnish
 %attr(755,root,root) %{_sbindir}/varnishd
