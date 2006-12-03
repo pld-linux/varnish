@@ -111,9 +111,9 @@ fi
 %attr(755,root,root) %{_bindir}/varnishncsa
 %attr(755,root,root) %{_bindir}/varnishstat
 %attr(755,root,root) %{_bindir}/varnishtop
-%attr(755,root,root) %{_libdir}/libvarnish.so.0.0.0
-%attr(755,root,root) %{_libdir}/libvarnishapi.so.0.0.0
-%attr(755,root,root) %{_libdir}/libvcl.so.0.0.0
+%attr(755,root,root) %{_libdir}/libvarnish.so.*.*.*
+%attr(755,root,root) %{_libdir}/libvarnishapi.so.*.*.*
+%attr(755,root,root) %{_libdir}/libvcl.so.*.*.*
 /var/lib/varnish
 %{_mandir}/man1/varnishd.1*
 %{_mandir}/man1/varnishhist.1*
