@@ -1,5 +1,5 @@
 Summary:	Varnish - a high-performance HTTP accelerator
-Summary(pl):	Varnish - wydajny akcelerator HTTP
+Summary(pl.UTF-8):   Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	1.0.2
 Release:	0.8
@@ -29,35 +29,35 @@ Varnish is targeted primarily at the FreeBSD 6 and Linux 2.6
 platforms, and will take full advantage of the advanced I/O features
 offered by these operating systems.
 
-%description -l pl
+%description -l pl.UTF-8
 Celem projektu Varnish jest stworzenie wydajnego akceleratora HTTP.
 
-Varnish jest tworzony g≥Ûwnie z my∂l± o platformach FreeBSD 6 i Linux
-2.6 i bÍdzie wykorzystywa≥ w pe≥ni zaawansowane moøliwo∂ci we/we
+Varnish jest tworzony g≈Ç√≥wnie z my≈õlƒÖ o platformach FreeBSD 6 i Linux
+2.6 i bƒôdzie wykorzystywa≈Ç w pe≈Çni zaawansowane mo≈ºliwo≈õci we/we
 oferowane przez te systemy operacyjne.
 
 %package devel
 Summary:	Header files for varnish library
-Summary(pl):	Pliki nag≥Ûwkowe biblioteki varnish
+Summary(pl.UTF-8):   Pliki nag≈Ç√≥wkowe biblioteki varnish
 Group:		Development/Libraries
 Requires:	%{name} = %{version}-%{release}
 
 %description devel
 Header files for varnish library.
 
-%description devel -l pl
-Pliki nag≥Ûwkowe biblioteki varnish.
+%description devel -l pl.UTF-8
+Pliki nag≈Ç√≥wkowe biblioteki varnish.
 
 %package static
 Summary:	Static varnish library
-Summary(pl):	Statyczna biblioteka varnish
+Summary(pl.UTF-8):   Statyczna biblioteka varnish
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
 
 %description static
 Static varnish library.
 
-%description static -l pl
+%description static -l pl.UTF-8
 Statyczna biblioteka varnish.
 
 %prep
