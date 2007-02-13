@@ -1,5 +1,5 @@
 Summary:	Varnish - a high-performance HTTP accelerator
-Summary(pl.UTF-8):   Varnish - wydajny akcelerator HTTP
+Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	1.0.2
 Release:	0.8
@@ -38,7 +38,7 @@ oferowane przez te systemy operacyjne.
 
 %package devel
 Summary:	Header files for varnish library
-Summary(pl.UTF-8):   Pliki nagłówkowe biblioteki varnish
+Summary(pl.UTF-8):	Pliki nagłówkowe biblioteki varnish
 Group:		Development/Libraries
 Requires:	%{name} = %{version}-%{release}
 
@@ -50,7 +50,7 @@ Pliki nagłówkowe biblioteki varnish.
 
 %package static
 Summary:	Static varnish library
-Summary(pl.UTF-8):   Statyczna biblioteka varnish
+Summary(pl.UTF-8):	Statyczna biblioteka varnish
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
 
