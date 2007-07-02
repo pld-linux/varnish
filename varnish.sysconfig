@@ -5,7 +5,8 @@
 #
 
 # Maximum number of open files (for ulimit -n)
-NFILES=131072
+# Open files (usually 1024, which is way too small for varnish)
+SERVICE_LIMITS="-n 131072"
 
 # This file contains 4 alternatives, please use only one.
 

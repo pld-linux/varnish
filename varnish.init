@@ -11,24 +11,16 @@
 # Source function library.
 . /etc/init.d/functions
 
-PROCNAME=varnishd
-
 . /etc/sysconfig/varnish
-if [ "$DAEMON" = "" ]; then DAEMON="/usr/sbin/varnishd"; fi
-DAEMON_OPTS="-a ${VARNISH_LISTEN_ADDRESS}:${VARNISH_LISTEN_PORT} \
-		-h ${VARNISH_HASHOPTION} \
-		-f ${VARNISH_VCL_CONF} \
-		-T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} \
-		-t ${VARNISH_TTL} \
-		-w ${VARNISH_MIN_WORKER_THREADS},${VARNISH_MAX_WORKER_THREADS},${VARNISH_WORKER_THREAD_TIMEOUT} \
-		-s ${VARNISH_BACKEND_STORAGE}"	
+
+if [ -z "$DAEMON" ]; then
+	DAEMON=/usr/sbin/varnishd
+fi
 
 start() {
 	if [ ! -f /var/lock/subsys/varnishd ]; then
 		msg_starting "Varnish HTTP accelerator"
 		daemon $DAEMON "$DAEMON_OPTS"
-		sleep 1
-		pkill -0 $PROCNAME
 		RETVAL=$?
 		[ $RETVAL -eq 0 ] && touch /var/lock/subsys/varnishd
 	else
@@ -56,7 +48,7 @@ case "$1" in
   	stop
 	;;
   status)
-	status $PROCNAME
+	status varnishd
 	RETVAL=$?
 	;;
   restart|reload)
