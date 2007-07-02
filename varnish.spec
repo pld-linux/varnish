@@ -1,5 +1,6 @@
 # TODO
 # - user varnish
+# - varnishlog initscript
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
