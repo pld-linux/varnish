@@ -4,7 +4,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	1.0.4
-Release:	1.4
+Release:	1.5
 License:	BSD-like
 Group:		Daemons
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
@@ -67,7 +67,11 @@ Statyczna biblioteka varnish.
 
 %build
 export CPPFLAGS="-I/usr/include/ncurses"
-./autogen.sh
+%{__aclocal}
+%{__libtoolize}
+%{__autoheader}
+%{__automake}
+%{__autoconf}
 %configure
 %{__make}
 
