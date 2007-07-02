@@ -5,7 +5,7 @@ Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	1.0.4
 Release:	1.5
-License:	BSD-like
+License:	BSD
 Group:		Daemons
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
 # Source0-md5:	2a917e485700d44b28c0d0b626ea90d8
