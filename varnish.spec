@@ -4,7 +4,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	1.0.4
-Release:	1.3
+Release:	1.4
 License:	BSD-like
 Group:		Daemons
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
@@ -82,7 +82,7 @@ install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{rc.d/init.d,sysconfig},/var/{run
 
 install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
 install %{SOURCE2} $RPM_BUILD_ROOT/etc/sysconfig/varnish
-install %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/vcl.conf
+install %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/default.vcl
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -104,7 +104,7 @@ fi
 %defattr(644,root,root,755)
 %doc INSTALL LICENSE README ChangeLog
 %dir %{_sysconfdir}
-%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/vcl.conf
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/default.vcl
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
 %attr(754,root,root) /etc/rc.d/init.d/varnish
 %attr(755,root,root) %{_sbindir}/varnishd
