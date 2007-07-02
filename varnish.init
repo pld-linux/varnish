@@ -2,7 +2,7 @@
 #
 # varnish	Control the varnish HTTP accelerator
 #
-# chkconfig: - 90 10
+# chkconfig: 345 90 10
 # description: HTTP accelerator
 # processname: varnishd
 # config: /etc/varnish.conf
