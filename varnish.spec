@@ -4,12 +4,12 @@
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
-Version:	1.0.4
-Release:	2
+Version:	1.1.1
+Release:	1
 License:	BSD
 Group:		Daemons
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
-# Source0-md5:	2a917e485700d44b28c0d0b626ea90d8
+# Source0-md5:	fb4159a46a32b8c5bceca88f22e999a5
 Source1:	%{name}.init
 Source2:	%{name}.sysconfig
 Source3:	%{name}.conf
@@ -114,35 +114,20 @@ fi
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
 %attr(754,root,root) /etc/rc.d/init.d/varnish
 %attr(755,root,root) %{_sbindir}/varnishd
-%attr(755,root,root) %{_bindir}/varnishhist
-%attr(755,root,root) %{_bindir}/varnishlog
-%attr(755,root,root) %{_bindir}/varnishncsa
-%attr(755,root,root) %{_bindir}/varnishstat
-%attr(755,root,root) %{_bindir}/varnishtop
-%attr(755,root,root) %{_libdir}/libvarnish.so.*.*.*
-%attr(755,root,root) %{_libdir}/libvarnishapi.so.*.*.*
-%attr(755,root,root) %{_libdir}/libvcl.so.*.*.*
+%attr(755,root,root) %{_bindir}/*
+%attr(755,root,root) %{_libdir}/*.so.*.*.*
 /var/lib/varnish
 /var/run/varnish
-%{_mandir}/man1/varnishd.1*
-%{_mandir}/man1/varnishhist.1*
-%{_mandir}/man1/varnishlog.1*
-%{_mandir}/man1/varnishncsa.1*
-%{_mandir}/man1/varnishstat.1*
-%{_mandir}/man1/varnishtop.1*
-%{_mandir}/man7/vcl.7*
+%{_mandir}/man1/*
+%{_mandir}/man7/*
 
 %files devel
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/libvarnish.so
-%attr(755,root,root) %{_libdir}/libvarnishapi.so
-%attr(755,root,root) %{_libdir}/libvcl.so
-%{_libdir}/libvarnish.la
-%{_libdir}/libvarnishapi.la
-%{_libdir}/libvcl.la
+%{_includedir}/varnish
+%attr(755,root,root) %{_libdir}/*.so
+%{_libdir}/*.la
+%{_pkgconfigdir}/*.pc
 
 %files static
 %defattr(644,root,root,755)
-%{_libdir}/libvarnish.a
-%{_libdir}/libvarnishapi.a
-%{_libdir}/libvcl.a
+%{_libdir}/*.a
