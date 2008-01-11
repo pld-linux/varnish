@@ -21,6 +21,7 @@ BuildRequires:	libtool >= 2:1.5
 BuildRequires:	ncurses-devel
 Requires(post):	/sbin/ldconfig
 Requires:	gcc
+Requires:	glibc-devel
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_sysconfdir	/etc/%{name}
