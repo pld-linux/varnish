@@ -7,7 +7,7 @@ Name:		varnish
 Version:	1.1.2
 Release:	1
 License:	BSD
-Group:		Daemons
+Group:		Networking/Daemons/HTTP
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
 # Source0-md5:	d9f74dae59a2158cdc31f446b6d92397
 Source1:	%{name}.init
