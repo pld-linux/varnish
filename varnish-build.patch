@@ -1,0 +1,12 @@
+--- varnish-2.0.2/lib/libvarnish/Makefile.am~	2008-11-14 13:24:08.000000000 +0100
++++ varnish-2.0.2/lib/libvarnish/Makefile.am	2008-11-16 14:28:16.836563291 +0100
+@@ -26,7 +26,8 @@
+ 	vss.c \
+ 	vtmpfile.c
+ 
+-libvarnish_la_LIBADD = ${RT_LIBS} ${NET_LIBS} ${LIBM}
++libvarnish_la_LIBADD = ${RT_LIBS} ${NET_LIBS} ${LIBM} \
++		        $(top_builddir)/lib/libvarnishcompat/libvarnishcompat.la
+ 
+ 
+ if ENABLE_TESTS
