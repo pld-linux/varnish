@@ -13,6 +13,7 @@ Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
 Source1:	%{name}.init
 Source2:	%{name}.sysconfig
 Source3:	%{name}.conf
+Patch0:		%{name}-build.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
@@ -67,6 +68,7 @@ Statyczna biblioteka varnish.
 
 %prep
 %setup -q
+%patch0 -p1
 
 %build
 export CPPFLAGS="-I/usr/include/ncurses"
