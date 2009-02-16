@@ -4,12 +4,12 @@
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
-Version:	2.0.2
+Version:	2.0.3
 Release:	0.1
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
-# Source0-md5:	131f502a9a507b9ce0a7a91b22528e0c
+# Source0-md5:	4233ad2fc3d0c2fcf7bf399f6ccf50b2
 Source1:	%{name}.init
 Source2:	%{name}.sysconfig
 Source3:	%{name}.conf
@@ -17,6 +17,7 @@ Patch0:		%{name}-build.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
+BuildRequires:	groff
 BuildRequires:	libstdc++-devel
 BuildRequires:	libtool >= 2:1.5
 BuildRequires:	ncurses-devel
@@ -119,6 +120,8 @@ fi
 %attr(755,root,root) %{_sbindir}/varnishd
 %attr(755,root,root) %{_bindir}/*
 %attr(755,root,root) %{_libdir}/*.so.*.*.*
+%attr(755,root,root) %ghost %{_libdir}/libvarnish*.so.1
+%attr(755,root,root) %ghost %{_libdir}/libvcl.so.1
 /var/lib/varnish
 /var/run/varnish
 %{_mandir}/man1/*
