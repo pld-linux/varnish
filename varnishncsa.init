@@ -27,12 +27,17 @@ start() {
 		return
 	fi
 
+	# NCSA log format, to be used by HTTP log analyzers
+	if ! is_yes "$VARNISHNCSA_ENABLED"; then
+		return
+	fi
+
 	local opts
-	if is_yes "${LOG_BACKEND}"; then
+	if is_yes "$LOG_BACKEND"; then
 		opts="$opts -b"
 	fi
 
-	if is_yes "${LOG_CLIENT}"; then
+	if is_yes "$LOG_CLIENT"; then
 		opts="$opts -c"
 	fi
 

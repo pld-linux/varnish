@@ -4,7 +4,7 @@
 # enough disk space for significant amounts of log data.
 #
 # NCSA log format, to be used by HTTP log analyzers
-#VARNISHNCSA_ENABLED=yes
+VARNISHNCSA_ENABLED=yes
 
 # Include log entries which result from communication with a backend server.
 LOG_BACKEND=no
