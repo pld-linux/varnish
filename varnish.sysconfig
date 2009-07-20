@@ -1,29 +1,29 @@
 # Configuration file for varnish
-#
-# /etc/rc.d/init.d/varnish expects the variable $DAEMON_OPTS to be set from this
-# shell script fragment.
-#
+# See varnishd(1) for more information.
 
 # Maximum number of open files (for ulimit -n)
 # Open files (usually 1024, which is way too small for varnish)
 NFILES=131072
 
-# Maxiumum locked memory size for shared memory log
+# Maximum locked memory size (for ulimit -l)
+# Used for locking the shared memory log in memory.  If you increase log size,
+# you need to increase this number as well
 MEMLOCK=82000
 
-SERVICE_LIMITS="-n $NFILES -l $MEMLOCK"
-
-# Advanced configuration
-#
-# See varnishd(1) for more information.
-#
 # Main configuration file. You probably want to change it :)
 VARNISH_VCL_CONF=/etc/varnish/default.vcl
 
+# Default varnish instance name is the local nodename.  Can be overridden with
+# the -n switch, to have more instances on a single server.
 INSTANCE=$(uname -n)
 
 # Name of this system / path to spool file
 VARNISH_NAME=/var/run/varnish/$INSTANCE
+
+# Specifies the name of an unprivileged user/group to which the child process should
+# switch before it starts accepting connections.
+VARNISH_USER=varnish
+VARNISH_GROUP=varnish
 
 # Default address and port to bind to
 # Blank address means all IPv4 and IPv6 interfaces, otherwise specify
@@ -56,13 +56,3 @@ VARNISH_STORAGE="file,${VARNISH_STORAGE_FILE},${VARNISH_STORAGE_SIZE}"
 
 # Default TTL used when the backend does not specify one
 VARNISH_TTL=120
-
-# DAEMON_OPTS is used by the init script.  If you add or remove options, make
-# sure you update this section, too.
-DAEMON_OPTS="-a ${VARNISH_LISTEN_ADDRESS}:${VARNISH_LISTEN_PORT} \
-             -f ${VARNISH_VCL_CONF} \
-             -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} \
-             -t ${VARNISH_TTL} \
-             -w ${VARNISH_MIN_THREADS},${VARNISH_MAX_THREADS},${VARNISH_THREAD_TIMEOUT} \
-             -n ${VARNISH_NAME} \
-             -s ${VARNISH_STORAGE}"
