@@ -6,7 +6,12 @@
 
 # Maximum number of open files (for ulimit -n)
 # Open files (usually 1024, which is way too small for varnish)
-SERVICE_LIMITS="-n 131072"
+NFILES=131072
+
+# Maxiumum locked memory size for shared memory log
+MEMLOCK=82000
+
+SERVICE_LIMITS="-n $NFILES -l $MEMLOCK"
 
 # Advanced configuration
 #
@@ -15,8 +20,10 @@ SERVICE_LIMITS="-n 131072"
 # Main configuration file. You probably want to change it :)
 VARNISH_VCL_CONF=/etc/varnish/default.vcl
 
+INSTANCE=$(uname -n)
+
 # Name of this system / path to spool file
-VARNISH_NAME=/var/run/varnish/pldmachine
+VARNISH_NAME=/var/run/varnish/$INSTANCE
 
 # Default address and port to bind to
 # Blank address means all IPv4 and IPv6 interfaces, otherwise specify
