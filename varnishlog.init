@@ -18,7 +18,6 @@
 [ -f /etc/sysconfig/varnishlog ] && . /etc/sysconfig/varnishlog
 
 pidfile="/var/run/varnishlog.pid"
-lockfile="/var/lock/subsys/varnishlog"
 logfile="/var/log/varnish/varnish.log"
 
 start() {
