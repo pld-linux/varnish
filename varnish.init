@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 #
 # varnish	Control the varnish HTTP accelerator
 #
@@ -11,31 +11,51 @@
 # Source function library.
 . /etc/init.d/functions
 
-. /etc/sysconfig/varnish
+# Get service config - may override defaults
+[ -f /etc/sysconfig/varnishd ] && . /etc/sysconfig/varnishd
 
-if [ -z "$DAEMON" ]; then
-	DAEMON=/usr/sbin/varnishd
+# Check that networking is up.
+if is_yes "${NETWORKING}"; then
+	if [ ! -f /var/lock/subsys/network -a "$1" != stop -a "$1" != status ]; then
+		msg_network_down "Varnish HTTP accelerator"
+		exit 1
+	fi
+else
+	exit 0
 fi
 
 start() {
-	if [ ! -f /var/lock/subsys/varnishd ]; then
-		msg_starting "Varnish HTTP accelerator"
-		daemon $DAEMON "$DAEMON_OPTS"
-		RETVAL=$?
-		[ $RETVAL -eq 0 ] && touch /var/lock/subsys/varnishd
-	else
+	if [ -f /var/lock/subsys/varnishd ]; then
 		msg_already_running "Varnish HTTP accelerator"
+		return
 	fi
+
+	msg_starting "Varnish HTTP accelerator"
+	daemon /usr/sbin/varnishd $DAEMON_OPTS
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/varnishd
 }
 
 stop() {
-	if [ -f /var/lock/subsys/varnishd ]; then
-		msg_stopping "Varnish HTTP accelerator"
-		killproc $DAEMON
-		rm -f /var/lock/subsys/varnishd
-	else
+	if [ ! -f /var/lock/subsys/varnishd ]; then
 		msg_not_running "Varnish HTTP accelerator"
+		return
 	fi
+
+	msg_stopping "Varnish HTTP accelerator"
+	killproc $DAEMON
+	rm -f /var/lock/subsys/varnishd
+}
+
+condrestart() {
+	if [ ! -f /var/lock/subsys/varnishd ]; then
+		msg_not_running "Varnish HTTP accelerator"
+		RETVAL=$1
+		return
+	fi
+
+	stop
+	start
 }
 
 RETVAL=0
@@ -47,16 +67,22 @@ case "$1" in
   stop)
   	stop
 	;;
+  restart)
+  	stop
+	start
+	;;
+  try-restart)
+	condrestart 0
+	;;
+  force-reload)
+	condrestart 7
+	;;
   status)
 	status varnishd
 	RETVAL=$?
 	;;
-  restart|reload)
-  	stop
-	start
-	;;
   *)
-	msg_usage "$0 {start|stop|status|restart}"
+	msg_usage "$0 {start|stop|restart|try-restart|force-reload|status}"
 	exit 3
 esac
 
