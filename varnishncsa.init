@@ -56,14 +56,25 @@ condrestart() {
 	start
 }
 
+reload() {
+	if [ ! -f /var/lock/subsys/varnishncsa ]; then
+		msg_not_running "Varnish NCSA logging daemon"
+		RETVAL=7
+		return
+	fi
+
+	msg_reloading "Varnish NCSA logging daemon"
+	killproc --pidfile $pidfile varnishncsa -HUP
+}
+
 RETVAL=0
 # See how we were called.
 case "$1" in
   start)
-  	start
+	start
 	;;
   stop)
-  	stop
+	stop
 	;;
   restart)
 	stop
@@ -72,8 +83,8 @@ case "$1" in
   try-restart)
 	condrestart 0
 	;;
-  force-reload)
-	condrestart 7
+  reload|force-reload)
+	reload
 	;;
   status)
 	status varnishncsa
