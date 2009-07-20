@@ -1,0 +1,87 @@
+#!/bin/sh
+#
+# varnishncsa	Control the varnish nsca logging daemon
+#
+# chkconfig:	345 90 10
+#
+# description:	Varnish HTTP accelerator logging daemon
+#
+# processname:	varnishncsa
+# pidfile: /var/run/varnish/varnishncsa.pid
+#
+# $Id$
+
+# Source function library
+. /etc/rc.d/init.d/functions
+
+# Get service config - may override defaults
+[ -f /etc/sysconfig/varnishncsa ] && . /etc/sysconfig/varnishncsa
+
+pidfile="/var/run/varnishncsa.pid"
+logfile="/var/log/varnish/access.log"
+
+start() {
+	# Check if the service is already running?
+	if [ -f /var/lock/subsys/varnishncsa ]; then
+		msg_already_running "Varnish NCSA logging daemon"
+		return
+	fi
+
+	msg_starting "Varnish NCSA logging daemon"
+	daemon --pidfile=$pidfile /usr/bin/varnishncsa -a -w $logfile -D -P $pidfile
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/varnishncsa
+}
+
+stop() {
+	if [ ! -f /var/lock/subsys/varnishncsa ]; then
+		msg_not_running "Varnish NCSA logging daemon"
+		return
+	fi
+
+	# Stop daemons.
+	msg_stopping "Varnish NCSA logging daemon"
+	killproc --pidfile $pidfile varnishncsa
+	rm -f /var/lock/subsys/varnishncsa
+}
+
+condrestart() {
+	if [ ! -f /var/lock/subsys/varnishncsa ]; then
+		msg_not_running "Varnish NCSA logging daemon"
+		RETVAL=$1
+		return
+	fi
+
+	stop
+	start
+}
+
+RETVAL=0
+# See how we were called.
+case "$1" in
+  start)
+  	start
+	;;
+  stop)
+  	stop
+	;;
+  restart)
+	stop
+	start
+	;;
+  try-restart)
+	condrestart 0
+	;;
+  force-reload)
+	condrestart 7
+	;;
+  status)
+	status varnishncsa
+	RETVAL=$?
+	;;
+  *)
+	msg_usage "$0 {start|stop|restart|try-restart|force-reload|status}"
+	exit 3
+esac
+
+exit $RETVAL
