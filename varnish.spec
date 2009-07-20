@@ -1,19 +1,20 @@
 # TODO
-# - user varnish
-# - varnishlog initscript
 # - debian/reload-vcl
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	2.0.4
-Release:	0.3
+Release:	0.11
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
 # Source0-md5:	8044d59cb6d2ec6d09b7ae6033f06bbf
 Source1:	%{name}.init
-Source2:	%{name}.sysconfig
-Source3:	%{name}.conf
+Source2:	%{name}log.init
+Source3:	%{name}ncsa.init
+Source4:	%{name}.sysconfig
+Source5:	%{name}.logrotate
+Source6:	%{name}.conf
 Patch0:		%{name}-build.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
@@ -33,6 +34,8 @@ Requires(pre):	/usr/sbin/useradd
 Requires:	gcc
 Requires:	glibc-devel
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
+
+%define		_localstatedir	/var/run
 
 %description
 The goal of the Varnish project is to develop a state-of-the-art,
@@ -98,11 +101,15 @@ rm -rf $RPM_BUILD_ROOT
 	DESTDIR=$RPM_BUILD_ROOT
 
 # make dirs after make install to know which ones needs spec and which ones make install
-install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{rc.d/init.d,sysconfig},/var/{run,lib}/varnish}
+install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{logrotate.d,rc.d/init.d,sysconfig},/var/{run,lib}/varnish} \
+	$RPM_BUILD_ROOT/var/log/{archive/,varnish}
 
 install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
-install %{SOURCE2} $RPM_BUILD_ROOT/etc/sysconfig/varnish
-install %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
+install %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishlog
+install %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishncsa
+install %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
+install %{SOURCE5} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
+install %{SOURCE6} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -110,7 +117,11 @@ rm -rf $RPM_BUILD_ROOT
 %post
 /sbin/ldconfig
 /sbin/chkconfig --add varnish
-%service %{name} restart
+/sbin/chkconfig --add varnishlog
+/sbin/chkconfig --add varnishncsa
+%service varnish restart
+%service varnishlog restart
+%service varnishncsa restart
 
 %pre
 %groupadd -g 241 %{name}
@@ -126,8 +137,12 @@ fi
 
 %preun
 if [ "$1" = "0" ]; then
-	%service -q %{name} stop
-	/sbin/chkconfig --del %{name}
+	%service -q varnish stop
+	%service -q varnishlog stop
+	%service -q varnishncsa stop
+	/sbin/chkconfig --del varnish
+	/sbin/chkconfig --del varnishlog
+	/sbin/chkconfig --del varnishncsa
 fi
 
 %files
@@ -136,7 +151,10 @@ fi
 %dir %{_sysconfdir}/%{name}
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/default.vcl
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
+%attr(640,root,root) %config(noreplace) %verify(not md5 mtime size) /etc/logrotate.d/varnish
 %attr(754,root,root) /etc/rc.d/init.d/varnish
+%attr(754,root,root) /etc/rc.d/init.d/varnishlog
+%attr(754,root,root) /etc/rc.d/init.d/varnishncsa
 %attr(755,root,root) %{_sbindir}/varnishd
 %attr(755,root,root) %{_bindir}/varnish*
 %attr(755,root,root) %{_libdir}/libvarnish*.so.*.*.*
