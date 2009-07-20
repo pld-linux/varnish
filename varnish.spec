@@ -6,7 +6,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	2.0.4
-Release:	0.1
+Release:	0.3
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
@@ -23,11 +23,16 @@ BuildRequires:	libstdc++-devel
 BuildRequires:	libtool >= 2:1.5
 BuildRequires:	ncurses-devel
 Requires(post):	/sbin/ldconfig
+Requires(postun):	/sbin/ldconfig
+Requires(postun):	/usr/sbin/groupdel
+Requires(postun):	/usr/sbin/userdel
+Requires(pre):	/bin/id
+Requires(pre):	/usr/bin/getgid
+Requires(pre):	/usr/sbin/groupadd
+Requires(pre):	/usr/sbin/useradd
 Requires:	gcc
 Requires:	glibc-devel
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
-
-%define		_sysconfdir	/etc/%{name}
 
 %description
 The goal of the Varnish project is to develop a state-of-the-art,
@@ -97,7 +102,7 @@ install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{rc.d/init.d,sysconfig},/var/{run
 
 install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
 install %{SOURCE2} $RPM_BUILD_ROOT/etc/sysconfig/varnish
-install %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/default.vcl
+install %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -107,7 +112,17 @@ rm -rf $RPM_BUILD_ROOT
 /sbin/chkconfig --add varnish
 %service %{name} restart
 
-%postun	-p /sbin/ldconfig
+%pre
+%groupadd -g 241 %{name}
+%useradd -u 241 -d /var/lib/%{name} -g %{name} -c "Varnishd User" %{name}
+
+%postun
+/sbin/ldconfig
+if [ "$1" = "0" ]; then
+	%userremove %{name}
+	%groupremove %{name}
+fi
+
 
 %preun
 if [ "$1" = "0" ]; then
@@ -118,19 +133,20 @@ fi
 %files
 %defattr(644,root,root,755)
 %doc LICENSE README ChangeLog
-%dir %{_sysconfdir}
-%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/default.vcl
+%dir %{_sysconfdir}/%{name}
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/default.vcl
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
 %attr(754,root,root) /etc/rc.d/init.d/varnish
 %attr(755,root,root) %{_sbindir}/varnishd
-%attr(755,root,root) %{_bindir}/*
-%attr(755,root,root) %{_libdir}/*.so.*.*.*
+%attr(755,root,root) %{_bindir}/varnish*
+%attr(755,root,root) %{_libdir}/libvarnish*.so.*.*.*
+%attr(755,root,root) %{_libdir}/libvcl.so.*.*.*
 %attr(755,root,root) %ghost %{_libdir}/libvarnish*.so.1
 %attr(755,root,root) %ghost %{_libdir}/libvcl.so.1
-/var/lib/varnish
-/var/run/varnish
 %{_mandir}/man1/*
 %{_mandir}/man7/*
+/var/lib/varnish
+/var/run/varnish
 
 %files devel
 %defattr(644,root,root,755)
