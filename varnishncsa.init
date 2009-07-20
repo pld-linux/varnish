@@ -27,8 +27,17 @@ start() {
 		return
 	fi
 
+	local opts
+	if is_yes "${LOG_BACKEND}"; then
+		opts="$opts -b"
+	fi
+
+	if is_yes "${LOG_CLIENT}"; then
+		opts="$opts -c"
+	fi
+
 	msg_starting "Varnish NCSA logging daemon"
-	daemon --pidfile=$pidfile /usr/bin/varnishncsa -a -w $logfile -D -P $pidfile
+	daemon --pidfile=$pidfile /usr/bin/varnishncsa -a -w $logfile -D -P $pidfile $opts
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/varnishncsa
 }
