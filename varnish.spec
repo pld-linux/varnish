@@ -1,6 +1,7 @@
 # TODO
 # - user varnish
 # - varnishlog initscript
+# - debian/reload-vcl
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
@@ -78,7 +79,11 @@ export CPPFLAGS="-I/usr/include/ncurses"
 %{__autoheader}
 %{__automake}
 %{__autoconf}
-%configure
+%configure \
+%ifarch hppa s390 sparc
+	--disable-jemalloc
+%endif
+
 %{__make}
 
 %install
