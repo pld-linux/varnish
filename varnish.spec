@@ -4,7 +4,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	2.0.4
-Release:	1
+Release:	2
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
@@ -24,14 +24,13 @@ BuildRequires:	groff
 BuildRequires:	libstdc++-devel
 BuildRequires:	libtool >= 2:1.5
 BuildRequires:	ncurses-devel
-Requires(post):	/sbin/ldconfig
-Requires(postun):	/sbin/ldconfig
 Requires(postun):	/usr/sbin/groupdel
 Requires(postun):	/usr/sbin/userdel
 Requires(pre):	/bin/id
 Requires(pre):	/usr/bin/getgid
 Requires(pre):	/usr/sbin/groupadd
 Requires(pre):	/usr/sbin/useradd
+Requires:	%{name}-libs = %{version}-%{release}
 Requires:	gcc
 Requires:	glibc-devel
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
@@ -53,11 +52,19 @@ Varnish jest tworzony głównie z myślą o platformach FreeBSD 6 i Linux
 2.6 i będzie wykorzystywał w pełni zaawansowane możliwości we/we
 oferowane przez te systemy operacyjne.
 
+%package libs
+Summary:	Libraries for Varnish
+Group:		Libraries
+Conflicts:	varnish < 2.0.4-2
+
+%description libs
+Libraies for Varnish.
+
 %package devel
 Summary:	Header files for varnish library
 Summary(pl.UTF-8):	Pliki nagłówkowe biblioteki varnish
 Group:		Development/Libraries
-Requires:	%{name} = %{version}-%{release}
+Requires:	%{name}-libs = %{version}-%{release}
 
 %description devel
 Header files for varnish library.
@@ -117,7 +124,6 @@ install %{SOURCE7} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
 rm -rf $RPM_BUILD_ROOT
 
 %post
-/sbin/ldconfig
 /sbin/chkconfig --add varnish
 /sbin/chkconfig --add varnishlog
 /sbin/chkconfig --add varnishncsa
@@ -130,7 +136,6 @@ rm -rf $RPM_BUILD_ROOT
 %useradd -u 241 -d /var/lib/%{name} -g %{name} -c "Varnishd User" %{name}
 
 %postun
-/sbin/ldconfig
 if [ "$1" = "0" ]; then
 	%userremove %{name}
 	%groupremove %{name}
@@ -147,6 +152,9 @@ if [ "$1" = "0" ]; then
 	/sbin/chkconfig --del varnishncsa
 fi
 
+%post	libs -p /sbin/ldconfig
+%postun	libs -p /sbin/ldconfig
+
 %files
 %defattr(644,root,root,755)
 %doc LICENSE README ChangeLog
@@ -160,14 +168,17 @@ fi
 %attr(754,root,root) /etc/rc.d/init.d/varnishncsa
 %attr(755,root,root) %{_sbindir}/varnishd
 %attr(755,root,root) %{_bindir}/varnish*
-%attr(755,root,root) %{_libdir}/libvarnish*.so.*.*.*
-%attr(755,root,root) %{_libdir}/libvcl.so.*.*.*
-%attr(755,root,root) %ghost %{_libdir}/libvarnish*.so.1
-%attr(755,root,root) %ghost %{_libdir}/libvcl.so.1
 %{_mandir}/man1/*
 %{_mandir}/man7/*
 /var/lib/varnish
 /var/run/varnish
+
+%files libs
+%defattr(644,root,root,755)
+%attr(755,root,root) %{_libdir}/libvarnish*.so.*.*.*
+%attr(755,root,root) %{_libdir}/libvcl.so.*.*.*
+%attr(755,root,root) %ghost %{_libdir}/libvarnish*.so.1
+%attr(755,root,root) %ghost %{_libdir}/libvcl.so.1
 
 %files devel
 %defattr(644,root,root,755)
