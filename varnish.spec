@@ -4,7 +4,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	2.0.4
-Release:	2
+Release:	2.1
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
@@ -16,6 +16,7 @@ Source4:	%{name}.sysconfig
 Source5:	%{name}ncsa.sysconfig
 Source6:	%{name}.logrotate
 Source7:	%{name}.conf
+Patch100:	branch.diff
 Patch0:		%{name}-build.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
@@ -86,6 +87,7 @@ Statyczna biblioteka varnish.
 
 %prep
 %setup -q
+%patch100 -p0
 %patch0 -p1
 
 %build
@@ -157,7 +159,7 @@ fi
 
 %files
 %defattr(644,root,root,755)
-%doc LICENSE README ChangeLog
+%doc LICENSE README ChangeLog etc/*.vcl
 %dir %{_sysconfdir}/%{name}
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/default.vcl
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
