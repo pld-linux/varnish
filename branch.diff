@@ -1,3 +1,4 @@
+# Revision 4343
 Index: include/vsb.h
 ===================================================================
 --- include/vsb.h	(.../tags/varnish-2.0.4/varnish-cache)
@@ -211,6 +212,209 @@ Index: configure.ac
  # Use jemalloc on Linux
  JEMALLOC_SUBDIR=
  JEMALLOC_LDADD=
+Index: doc/changes-2.0.4-2.0.5.xml
+===================================================================
+--- doc/changes-2.0.4-2.0.5.xml	(.../tags/varnish-2.0.4/varnish-cache)
++++ doc/changes-2.0.4-2.0.5.xml	(.../branches/2.0/varnish-cache)
+@@ -0,0 +1,161 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!DOCTYPE group [
++<!ENTITY mdash "&#8212;">
++]>
++<!-- $Id$ -->
++<group from="2.0.4" to="2.0.5">
++  <subsystem>
++    <name>varnishd</name>
++
++    <change type="bug" ref="498">
++      <para>Handle object workspace overruns better.</para>
++    </change>
++
++    <change type="enh">
++      <para>Allow turning off ESI processing per request by using
++      <code>set req.esi = off</code>.</para>
++    </change>
++
++    <change type="enh">
++      <para>Tell the kernel that we expect to use the mmap-ed file in
++      a random fashion.  On Linux, this turns off/down readahead and
++      increases performance.</para>
++    </change>
++
++    <change type="enh">
++      <para>Make it possible to change the maximum number of HTTP
++      headers we allow by
++      passing <code>--with-max-header-fields=NUM</code> rather than
++      changing the code.</para>
++    </change>
++
++    <change type="enh" ref="428">
++      <para>Implement support for HTTP continuation lines.</para>
++    </change>
++
++    <change type="enh">
++      <para>Change how connections are closed and only use SO_LINGER
++      for orderly connection closure.  This should hopefully make
++      worker threads less prone to hangups on network problems.</para>
++    </change>
++
++    <change type="bug" ref="502">
++      <para>Handle multi-element purges correctly.  Previously we
++      ended up with parse errors when this was done from VCL.</para>
++    </change>
++
++    <change type="bug" ref="506, 549">
++      <para>Handle illegal responses from the backend better by
++      serving a 503 page rather than panic-ing.</para>
++    </change>
++
++    <change type="enh">
++      <para>When we run into an assertion that is not true, Varnish
++      would previously dump a little bit of information about itself.
++      Extend that information with a backtrace.  Note that this relies
++      on the varnish binary being unstripped.</para>
++    </change>
++
++    <change type="enh">
++      <para>Add a session_max parameter that limits the maximum
++      number of sessions we keep open before we start dropping new
++      connections summarily.</para>
++    </change>
++
++    <change type="bug">
++      <para>Try to consume less memory when doing ESI processing by
++      properly rolling back used workspace after processing an
++      object.  This should make it possible to
++      turn <code>sess_workspace</code> quite a bit for users with
++      ESI-heavy pages.</para>
++    </change>
++
++    <change type="enh">
++      <para>Turn on <code>session_linger</code> by default.  Tests
++      have shown that <code>session_linger</code> helps a fair bit
++      with performance.</para>
++    </change>
++
++    <change type="enh">
++      <para>Rewrite the epoll acceptor for better performance.  This
++      should lead to both higher processing rates and maximum number
++      of connections on Linux.</para>
++    </change>
++
++    <change type="enh">
++      <para>Add If-None-Match support, this gives significant
++      bandwidth savings for users with compliant browsers.</para>
++    </change>
++
++    <change type="bug" ref="529">
++      <para>RFC2616 specifies
++      that <code>ETag</code>, <code>Content-Location</code>, <code>Expires</code>, <code>Cache-Control</code>
++      and <code>Vary</code> should be emitted when delivering a
++      response with the 304 response code.</para>
++    </change>
++
++    <change type="bug" ref="531">
++      <para>Various fixes which makes Varnish compile and work on AIX.</para>
++    </change>
++
++    <change type="enh">
++      <para>Turn on TCP_DEFER_ACCEPT on Linux.  This should make us
++      less suspecible to denial of service attacks as well as give us
++      slightly better performance.</para>
++    </change>
++
++    <change type="enh">
++      <para>Add an <code>.initial</code> property to the backend
++      probe specification.  This is the number of good probes we
++      pretend to have seen.  The default is one less than .threshold,
++      which means the first probe will decide if we consider the
++      backend healthy.</para>
++    </change>
++
++    <change type="enh">
++      <para>Make it possible to compare strings against other
++      string-like objects, not just plain strings.  This allows you to
++      compare two headers, for instance.</para>
++    </change>
++
++    <change type="bug">
++      <para>When support for <code>restart</code>
++      in <code>vcl_error</code> was added, there was no check to
++      prevent infinte recursion.  This has now been fixed.
++     </para>
++    </change>
++
++    <change type="enh">
++      <para>Turn on purge_dups by default.  This should make us
++      consume less memory when there are many bans for the same
++      pattern added.</para>
++    </change>
++
++    <change type="enh">
++      <para>Add a new log tag called <code>FetchError</code> which
++      tries to explain why we could not fetch an object from the
++      backend.</para>
++    </change>
++
++    <change type="enh">
++      <para>Change the default <code>srcaddr_ttl</code> to 0.  It is
++      not used by anything and has been removed in the development
++      version.  This will increase performance somewhat.</para>
++    </change>
++
++  </subsystem>
++
++  <subsystem>
++    <name>varnishtop</name>
++    <change type="bug" ref="514">
++      <para>varnishtop did not handle variable-length log fields
++      correctly. This is now fixed.</para>
++    </change>
++
++    <change type="enh">
++      <para>varnishtop previously did not print the name of the tag,
++      which made it very hard to understand.  We now print out the
++      tag name.</para>
++    </change>
++  </subsystem>
++</group>
+Index: doc/changes-2.0.5.xml
+===================================================================
+--- doc/changes-2.0.5.xml	(.../tags/varnish-2.0.4/varnish-cache)
++++ doc/changes-2.0.5.xml	(.../branches/2.0/varnish-cache)
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<?xml-stylesheet type="text/xml" href="changes-html.xsl"?>
++<!DOCTYPE changelog [
++ <!ENTITY mdash "&#8212;">
++]>
++<!-- $Id$ -->
++<changelog xmlns:xi="http://www.w3.org/2001/XInclude">
++  <package>Varnish</package>
++  <version>2.0.5</version>
++
++  <xi:include href="changes-2.0.4-2.0.5.xml"/>
++</changelog>
+Index: doc/Makefile.am
+===================================================================
+--- doc/Makefile.am	(.../tags/varnish-2.0.4/varnish-cache)
++++ doc/Makefile.am	(.../branches/2.0/varnish-cache)
+@@ -1,6 +1,7 @@
+ # $Id$
+ 
+ CHANGELOGS = \
++	changes-2.0.5.html \
+ 	changes-2.0.4.html \
+ 	changes-2.0.3.html \
+ 	changes-2.0.2.html \
+@@ -12,6 +13,7 @@
+ 	changes-1.0.4.html
+ 
+ XML = \
++	changes-2.0.4-2.0.5.xml \
+ 	changes-2.0.3-2.0.4.xml \
+ 	changes-2.0.2-2.0.3.xml \
+ 	changes-2.0.1-2.0.2.xml \
 Index: lib/libvarnish/argv.c
 ===================================================================
 --- lib/libvarnish/argv.c	(.../tags/varnish-2.0.4/varnish-cache)
@@ -453,7 +657,7 @@ Index: lib/libvarnishcompat/execinfo.c
 +#include <string.h>
 +#include <unistd.h>
 +
-+#include "execinfo.h"
++#include "compat/execinfo.h"
 +
 +void *getreturnaddr(int);
 +void *getframeaddr(int);
@@ -1963,6 +2167,15 @@ Index: bin/varnishd/mgt_param.c
 ===================================================================
 --- bin/varnishd/mgt_param.c	(.../tags/varnish-2.0.4/varnish-cache)
 +++ bin/varnishd/mgt_param.c	(.../branches/2.0/varnish-cache)
+@@ -585,7 +585,7 @@
+ 		"Lifetime of srcaddr entries.\n"
+ 		"Zero will disable srcaddr accounting entirely.",
+ 		EXPERIMENTAL,
+-		"30", "seconds" },
++		"0", "seconds" },
+ 	{ "backend_http11", tweak_bool, &master.backend_http11, 0, 0,
+ 		"Force all backend requests to be HTTP/1.1.\n"
+ 		"By default we copy the protocol version from the "
 @@ -692,6 +692,15 @@
  		"have both IPv4 and IPv6 addresses.",
  		0,
@@ -3816,7 +4029,7 @@ Index: bin/varnishd/cache_acceptor_epoll.c
  #include <stdlib.h>
  #include <unistd.h>
  
-@@ -47,77 +50,148 @@
+@@ -47,77 +50,149 @@
  #include "cache.h"
  #include "cache_acceptor.h"
  
@@ -4002,10 +4215,11 @@ Index: bin/varnishd/cache_acceptor_epoll.c
 +				break;
  			VTAILQ_REMOVE(&sesshead, sp, list);
 -			vca_del(sp->fd);
++			TCP_linger(sp->fd, 0);
  			vca_close_session(sp, "timeout");
  			SES_Delete(sp);
  		}
-@@ -126,10 +200,44 @@
+@@ -126,10 +201,44 @@
  
  /*--------------------------------------------------------------------*/
  
@@ -4116,7 +4330,7 @@ Index: bin/varnishd/varnishd.c
 +	struct symbols *s;
 +
 +	p = NULL;
-+	asprintf(&p, "nm -an %s", a0);
++	asprintf(&p, "nm -an %s 2>/dev/null", a0);
 +	if (p == NULL)
 +		return;
 +	fi = popen(p, "r");
