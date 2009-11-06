@@ -42,7 +42,7 @@ start() {
 	fi
 
 	msg_starting "Varnish NCSA logging daemon"
-	daemon --pidfile=$pidfile /usr/bin/varnishncsa -a -w $logfile -D -P $pidfile $opts
+	daemon --pidfile $pidfile /usr/bin/varnishncsa -a -w $logfile -D -P $pidfile $opts
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/varnishncsa
 }

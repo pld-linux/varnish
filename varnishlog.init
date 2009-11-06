@@ -28,7 +28,7 @@ start() {
 	fi
 
 	msg_starting "Varnish logging daemon"
-	daemon --pidfile=$pidfile /usr/bin/varnishlog -a -w $logfile -D -P $pidfile
+	daemon --pidfile $pidfile /usr/bin/varnishlog -a -w $logfile -D -P $pidfile
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/varnishlog
 }
