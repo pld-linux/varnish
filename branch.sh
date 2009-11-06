@@ -26,4 +26,4 @@ if cmp -s $out{,.tmp}; then
 	rm -f $out.tmp
 	exit 0
 fi
-mv -f $out.diff{.tmp,}
+mv -f $out{.tmp,}
