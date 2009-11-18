@@ -1,10 +1,12 @@
-/var/log/varnish/*.log {
-    missingok
-    notifempty
-    sharedscripts
+/var/log/varnish/access.log
+/var/log/varnish/varnish.log
+{
+	missingok
+	notifempty
+	sharedscripts
 	olddir /var/log/archive/varnish
-    postrotate
-        kill -HUP `cat /var/run/varnish/varnishlog.pid 2>/dev/null` 2> /dev/null || :
+	postrotate
+		kill -HUP `cat /var/run/varnish/varnishlog.pid 2>/dev/null` 2> /dev/null || :
 		kill -HUP `cat /var/run/varnish/varnishncsa.pid 2>/dev/null` 2> /dev/null || :
-    endscript
+	endscript
 }
