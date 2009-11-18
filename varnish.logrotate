@@ -1,4 +1,4 @@
-/var/log/varnish/access.log
+# varnishlog
 /var/log/varnish/varnish.log
 {
 	missingok
@@ -6,7 +6,18 @@
 	sharedscripts
 	olddir /var/log/archive/varnish
 	postrotate
-		kill -HUP `cat /var/run/varnish/varnishlog.pid 2>/dev/null` 2> /dev/null || :
-		kill -HUP `cat /var/run/varnish/varnishncsa.pid 2>/dev/null` 2> /dev/null || :
+		/sbin/service varnishlog flush-logs
+	endscript
+}
+
+# varnishncsa log
+/var/log/varnish/access.log
+{
+	missingok
+	notifempty
+	sharedscripts
+	olddir /var/log/archive/varnish
+	postrotate
+		/sbin/service varnishncsa flush-logs
 	endscript
 }
