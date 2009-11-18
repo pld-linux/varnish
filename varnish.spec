@@ -3,12 +3,12 @@
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
-Version:	2.0.4
-Release:	2.1
+Version:	2.0.5
+Release:	1
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
-# Source0-md5:	8044d59cb6d2ec6d09b7ae6033f06bbf
+# Source0-md5:	fde37b8c571cb69cf9e9f0da62a8310b
 Source1:	%{name}.init
 Source2:	%{name}log.init
 Source3:	%{name}ncsa.init
@@ -16,7 +16,7 @@ Source4:	%{name}.sysconfig
 Source5:	%{name}ncsa.sysconfig
 Source6:	%{name}.logrotate
 Source7:	%{name}.conf
-Patch100:	branch.diff
+#Patch100:	branch.diff
 Patch0:		%{name}-build.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
@@ -87,7 +87,7 @@ Statyczna biblioteka varnish.
 
 %prep
 %setup -q
-%patch100 -p0
+#%patch100 -p0
 %patch0 -p1
 
 %build
@@ -112,7 +112,7 @@ rm -rf $RPM_BUILD_ROOT
 
 # make dirs after make install to know which ones needs spec and which ones make install
 install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{logrotate.d,rc.d/init.d,sysconfig},/var/{run,lib}/varnish} \
-	$RPM_BUILD_ROOT/var/log/{archive/,varnish}
+	$RPM_BUILD_ROOT/var/log/{archive/,}varnish
 
 install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
 install %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishlog
@@ -175,11 +175,14 @@ fi
 /var/lib/varnish
 /var/run/varnish
 
+%dir %attr(751,root,root) /var/log/varnish
+%dir %attr(750,root,root) /var/log/archive/varnish
+
 %files libs
 %defattr(644,root,root,755)
 %attr(755,root,root) %{_libdir}/libvarnish*.so.*.*.*
-%attr(755,root,root) %{_libdir}/libvcl.so.*.*.*
 %attr(755,root,root) %ghost %{_libdir}/libvarnish*.so.1
+%attr(755,root,root) %{_libdir}/libvcl.so.*.*.*
 %attr(755,root,root) %ghost %{_libdir}/libvcl.so.1
 
 %files devel
