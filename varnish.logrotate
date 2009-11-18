@@ -1,6 +1,5 @@
 # varnishlog
-/var/log/varnish/varnish.log
-{
+/var/log/varnish/varnish.log {
 	missingok
 	notifempty
 	sharedscripts
@@ -11,8 +10,7 @@
 }
 
 # varnishncsa log
-/var/log/varnish/access.log
-{
+/var/log/varnish/access.log {
 	missingok
 	notifempty
 	sharedscripts
