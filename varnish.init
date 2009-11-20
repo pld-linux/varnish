@@ -48,7 +48,7 @@ start() {
 	fi
 
 	msg_starting "Varnish HTTP accelerator"
-	daemon /usr/sbin/varnishd $DAEMON_OPTS
+	daemon /usr/sbin/varnishd $DAEMON_OPTS $VARNISH_OPTS
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/varnish
 }

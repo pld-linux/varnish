@@ -44,6 +44,10 @@ VARNISH_MAX_THREADS=1000
 # Idle timeout for worker threads
 VARNISH_THREAD_TIMEOUT=120
 
+# Any custom option you want to pass to varnishd.
+# As it is passed last option to varnishd, it can override the earlier values.
+VARNISH_OPTS=""
+
 # Cache file location
 VARNISH_STORAGE_FILE=/var/lib/varnish/varnish_storage.bin
 
