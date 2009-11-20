@@ -49,6 +49,11 @@ start() {
 		-s ${VARNISH_STORAGE}
 	"
 
+	# iterate over $VARNISH_OPTS
+	for param in $VARNISH_PARAMS; do
+		DAEMON_OPTS="$DAEMON_OPTS -p $param"
+	done
+
 	msg_starting "Varnish HTTP accelerator"
 	daemon /usr/sbin/varnishd $DAEMON_OPTS $VARNISH_OPTS
 	RETVAL=$?

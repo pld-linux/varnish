@@ -48,6 +48,11 @@ VARNISH_THREAD_TIMEOUT=120
 # As it is passed last option to varnishd, it can override the earlier values.
 VARNISH_OPTS=""
 
+# Syntax: param=value [param=value]
+# Set the parameters specified by param to the specified value.
+# See Run-Time Parameters section of varnishd(1) for a list of parameters.
+#VARNISH_PARAMS="cli_timeout=10 thread_pools=4"
+
 # Cache file location
 VARNISH_STORAGE_FILE=/var/lib/varnish/varnish_storage.bin
 
