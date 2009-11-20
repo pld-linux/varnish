@@ -38,14 +38,16 @@ start() {
 
 	# DAEMON_OPTS is used by the init script.  If you add or remove options, make
 	# sure you update this section, too.
-	DAEMON_OPTS="-a ${VARNISH_LISTEN_ADDRESS}:${VARNISH_LISTEN_PORT} \
-				 -f ${VARNISH_VCL_CONF} \
-				 -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} \
-				 -t ${VARNISH_TTL} \
-				 -u ${VARNISH_USER} -g ${VARNISH_GROUP} \
-				 -w ${VARNISH_MIN_THREADS},${VARNISH_MAX_THREADS},${VARNISH_THREAD_TIMEOUT} \
-				 -n ${VARNISH_NAME} \
-				 -s ${VARNISH_STORAGE}"
+	DAEMON_OPTS="
+		-a ${VARNISH_LISTEN_ADDRESS}:${VARNISH_LISTEN_PORT}
+		-f ${VARNISH_VCL_CONF}
+		-T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT}
+		-t ${VARNISH_TTL}
+		-u ${VARNISH_USER} -g ${VARNISH_GROUP}
+		-w ${VARNISH_MIN_THREADS},${VARNISH_MAX_THREADS},${VARNISH_THREAD_TIMEOUT}
+		-n ${VARNISH_NAME}
+		-s ${VARNISH_STORAGE}
+	"
 
 	msg_starting "Varnish HTTP accelerator"
 	daemon /usr/sbin/varnishd $DAEMON_OPTS $VARNISH_OPTS
