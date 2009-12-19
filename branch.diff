@@ -1,387 +1,114 @@
-# Revision 4343
-Index: include/vsb.h
-===================================================================
---- include/vsb.h	(.../tags/varnish-2.0.4/varnish-cache)
-+++ include/vsb.h	(.../branches/2.0/varnish-cache)
-@@ -77,7 +77,8 @@
- int		 vsb_len(struct vsb *);
- int		 vsb_done(const struct vsb *);
- void		 vsb_delete(struct vsb *);
--void		 vsb_quote(struct vsb *s, const char *p, int how);
-+void		 vsb_quote(struct vsb *s, const char *p, int len, int how);
-+const char	*vsb_unquote(struct vsb *s, const char *p, int len, int how);
- #ifdef __cplusplus
- };
- #endif
+# Revision 4419
 Index: include/compat/execinfo.h
 ===================================================================
---- include/compat/execinfo.h	(.../tags/varnish-2.0.4/varnish-cache)
+--- include/compat/execinfo.h	(.../tags/varnish-2.0.5/varnish-cache)
 +++ include/compat/execinfo.h	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,44 @@
-+/*
-+ * Copyright (c) 2003 Maxim Sobolev <sobomax@FreeBSD.org>
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
-+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
-+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-+ * SUCH DAMAGE.
-+ *
-+ * $Id$
-+ */
-+
-+#ifndef COMPAT_EXECINFO_H_INCLUDED
-+#define COMPAT_EXECINFO_H_INCLUDED
-+
-+#ifdef __cplusplus
-+extern "C" {
-+#endif
-+
-+int     backtrace(void **, int);
-+char ** backtrace_symbols(void *const *, int);
-+void    backtrace_symbols_fd(void *const *, int, int);
-+
-+#ifdef __cplusplus
-+}
-+#endif
-+
-+#endif /* COMPAT_EXECINFO_H_INCLUDED */
-Index: include/libvarnish.h
-===================================================================
---- include/libvarnish.h	(.../tags/varnish-2.0.4/varnish-cache)
-+++ include/libvarnish.h	(.../branches/2.0/varnish-cache)
-@@ -42,6 +42,8 @@
- /* from libvarnish/argv.c */
- void FreeArgv(char **argv);
- char **ParseArgv(const char *s, int flag);
-+char *BackSlashDecode(const char *s, const char *e);
-+int BackSlash(const char *s, char *res);
- #define ARGV_COMMENT	(1 << 0)
- #define ARGV_COMMA	(1 << 1)
+@@ -35,7 +35,6 @@
  
-@@ -65,6 +67,7 @@
- int TCP_filter_http(int sock);
- void TCP_blocking(int sock);
- void TCP_nonblocking(int sock);
-+void TCP_linger(int sock, int linger);
- #ifdef SOL_SOCKET
- void TCP_name(const struct sockaddr *addr, unsigned l, char *abuf,
-     unsigned alen, char *pbuf, unsigned plen);
-Index: include/vrt_obj.h
-===================================================================
---- include/vrt_obj.h	(.../tags/varnish-2.0.4/varnish-cache)
-+++ include/vrt_obj.h	(.../branches/2.0/varnish-cache)
-@@ -24,6 +24,8 @@
- double VRT_r_req_grace(struct sess *);
- void VRT_l_req_grace(struct sess *, double);
- const char * VRT_r_req_xid(struct sess *);
-+unsigned VRT_r_req_esi(struct sess *);
-+void VRT_l_req_esi(struct sess *, unsigned);
- const char * VRT_r_bereq_request(const struct sess *);
- void VRT_l_bereq_request(const struct sess *, const char *, ...);
- const char * VRT_r_bereq_url(const struct sess *);
-Index: include/shmlog_tags.h
-===================================================================
---- include/shmlog_tags.h	(.../tags/varnish-2.0.4/varnish-cache)
-+++ include/shmlog_tags.h	(.../branches/2.0/varnish-cache)
-@@ -101,3 +101,5 @@
- SLTM(Hash)
+ int     backtrace(void **, int);
+ char ** backtrace_symbols(void *const *, int);
+-void    backtrace_symbols_fd(void *const *, int, int);
  
- SLTM(Backend_health)
-+
-+SLTM(FetchError)
+ #ifdef __cplusplus
+ }
 Index: include/vrt.h
 ===================================================================
---- include/vrt.h	(.../tags/varnish-2.0.4/varnish-cache)
+--- include/vrt.h	(.../tags/varnish-2.0.5/varnish-cache)
 +++ include/vrt.h	(.../branches/2.0/varnish-cache)
-@@ -54,6 +54,7 @@
+@@ -52,6 +52,7 @@
+ 	const char	*request;
+ 	double		timeout;
  	double		interval;
++	unsigned	exp_status;
  	unsigned	window;
  	unsigned	threshold;
-+	unsigned	initial;
- };
- 
- /*
-Index: include/stat_field.h
-===================================================================
---- include/stat_field.h	(.../tags/varnish-2.0.4/varnish-cache)
-+++ include/stat_field.h	(.../branches/2.0/varnish-cache)
-@@ -30,21 +30,33 @@
-  */
- 
- MAC_STAT(client_conn,		uint64_t, 'a', "Client connections accepted")
-+MAC_STAT(client_drop,		uint64_t, 'a', "Connection dropped, no sess")
- MAC_STAT(client_req,		uint64_t, 'a', "Client requests received")
- 
- MAC_STAT(cache_hit,		uint64_t, 'a', "Cache hits")
- MAC_STAT(cache_hitpass,		uint64_t, 'a', "Cache hits for pass")
- MAC_STAT(cache_miss,		uint64_t, 'a', "Cache misses")
- 
--MAC_STAT(backend_conn,		uint64_t, 'a', "Backend connections success")
--MAC_STAT(backend_unhealthy,	uint64_t, 'a',
--    "Backend connections not attempted")
--MAC_STAT(backend_busy,		uint64_t, 'a', "Backend connections too many")
--MAC_STAT(backend_fail,		uint64_t, 'a', "Backend connections failures")
--MAC_STAT(backend_reuse,		uint64_t, 'a', "Backend connections reuses")
--MAC_STAT(backend_recycle,	uint64_t, 'a', "Backend connections recycles")
--MAC_STAT(backend_unused,	uint64_t, 'a', "Backend connections unused")
-+MAC_STAT(backend_conn,		uint64_t, 'a', "Backend conn. success")
-+MAC_STAT(backend_unhealthy,	uint64_t, 'a', "Backend conn. not attempted")
-+MAC_STAT(backend_busy,		uint64_t, 'a', "Backend conn. too many")
-+MAC_STAT(backend_fail,		uint64_t, 'a', "Backend conn. failures")
-+MAC_STAT(backend_reuse,		uint64_t, 'a', "Backend conn. reuses")
-+MAC_STAT(backend_toolate,	uint64_t, 'a', "Backend conn. was closed")
-+MAC_STAT(backend_recycle,	uint64_t, 'a', "Backend conn. recycles")
-+MAC_STAT(backend_unused,	uint64_t, 'a', "Backend conn. unused")
- 
-+
-+MAC_STAT(fetch_head,		uint64_t, 'a', "Fetch head")
-+MAC_STAT(fetch_length,		uint64_t, 'a', "Fetch with Length")
-+MAC_STAT(fetch_chunked,		uint64_t, 'a', "Fetch chunked")
-+MAC_STAT(fetch_eof,		uint64_t, 'a', "Fetch EOF")
-+MAC_STAT(fetch_bad,		uint64_t, 'a', "Fetch had bad headers")
-+MAC_STAT(fetch_close,		uint64_t, 'a', "Fetch wanted close")
-+MAC_STAT(fetch_oldhttp,		uint64_t, 'a', "Fetch pre HTTP/1.1 closed")
-+MAC_STAT(fetch_zero,		uint64_t, 'a', "Fetch zero len")
-+MAC_STAT(fetch_failed,		uint64_t, 'a', "Fetch failed")
-+
- MAC_STAT(n_srcaddr,		uint64_t, 'i', "N struct srcaddr")
- MAC_STAT(n_srcaddr_act,		uint64_t, 'i', "N active struct srcaddr")
- MAC_STAT(n_sess_mem,		uint64_t, 'i', "N struct sess_mem")
-Index: include/Makefile.am
-===================================================================
---- include/Makefile.am	(.../tags/varnish-2.0.4/varnish-cache)
-+++ include/Makefile.am	(.../branches/2.0/varnish-cache)
-@@ -14,6 +14,7 @@
- 	cli_priv.h \
- 	compat/asprintf.h \
- 	compat/daemon.h \
-+	compat/execinfo.h \
- 	compat/setproctitle.h \
- 	compat/srandomdev.h \
- 	compat/strlcat.h \
+ 	unsigned	initial;
 Index: configure.ac
 ===================================================================
---- configure.ac	(.../tags/varnish-2.0.4/varnish-cache)
+--- configure.ac	(.../tags/varnish-2.0.5/varnish-cache)
 +++ configure.ac	(.../branches/2.0/varnish-cache)
-@@ -81,6 +81,7 @@
- AC_CHECK_HEADERS([sys/statvfs.h])
- AC_CHECK_HEADERS([sys/vfs.h])
- AC_CHECK_HEADERS([endian.h])
-+AC_CHECK_HEADERS([execinfo.h])
- AC_CHECK_HEADERS([netinet/in.h])
- AC_CHECK_HEADERS([pthread_np.h])
- AC_CHECK_HEADERS([stddef.h])
-@@ -102,6 +103,7 @@
- AC_FUNC_VPRINTF
- AC_CHECK_FUNCS([strerror])
- AC_FUNC_STRERROR_R
-+AC_CHECK_FUNCS([dladdr])
- AC_CHECK_FUNCS([socket])
- AC_CHECK_FUNCS([strptime])
- AC_CHECK_FUNCS([fmtcheck])
-@@ -360,6 +362,15 @@
- fi
- AC_DEFINE_UNQUOTED([VCC_CC],"$VCC_CC",[C compiler command line for VCL code])
+@@ -1,9 +1,9 @@
+ # $Id$
  
-+# Define HTTP_HDR_MAX_VAL
-+AC_ARG_WITH(max-header-fields,
-+            AS_HELP_STRING([--with-max-header-fields=NUM],
-+                           [How many header fields to support (default=32)]),
-+            [],
-+            [with_max_header_fields=32])
-+
-+AC_DEFINE_UNQUOTED(HTTP_HDR_MAX_VAL, $with_max_header_fields, [Define maximum number of header fields supported by varnish ])
-+
- # Use jemalloc on Linux
- JEMALLOC_SUBDIR=
- JEMALLOC_LDADD=
-Index: doc/changes-2.0.4-2.0.5.xml
+ AC_PREREQ(2.59)
+-AC_COPYRIGHT([Copyright (c) 2006-2008 Linpro AS / Verdens Gang AS])
++AC_COPYRIGHT([Copyright (c) 2006-2009 Linpro AS / Verdens Gang AS])
+ AC_REVISION([$Id$])
+-AC_INIT([Varnish], [2.0.5], [varnish-dev@projects.linpro.no])
++AC_INIT([Varnish], [2.0.6], [varnish-dev@projects.linpro.no])
+ AC_CONFIG_SRCDIR(include/varnishapi.h)
+ AM_CONFIG_HEADER(config.h)
+ 
+@@ -175,6 +175,7 @@
+ AC_CHECK_FUNCS([strlcat strlcpy])
+ AC_CHECK_FUNCS([strndup])
+ AC_CHECK_FUNCS([daemon])
++AC_CHECK_FUNCS([backtrace])
+ AC_SYS_LARGEFILE
+ 
+ save_LIBS="${LIBS}"
+Index: doc/changes-2.0.5-2.0.6.xml
 ===================================================================
---- doc/changes-2.0.4-2.0.5.xml	(.../tags/varnish-2.0.4/varnish-cache)
-+++ doc/changes-2.0.4-2.0.5.xml	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,161 @@
+--- doc/changes-2.0.5-2.0.6.xml	(.../tags/varnish-2.0.5/varnish-cache)
++++ doc/changes-2.0.5-2.0.6.xml	(.../branches/2.0/varnish-cache)
+@@ -0,0 +1,53 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!DOCTYPE group [
 +<!ENTITY mdash "&#8212;">
 +]>
 +<!-- $Id$ -->
-+<group from="2.0.4" to="2.0.5">
++<group from="2.0.5" to="2.0.6">
 +  <subsystem>
 +    <name>varnishd</name>
 +
-+    <change type="bug" ref="498">
-+      <para>Handle object workspace overruns better.</para>
++    <change type="bug" ref="585">
++      <para>2.0.5 had an off-by-one error in the ESI handling causing
++      includes to fail a large part of the time. This has now been
++      fixed.</para>
 +    </change>
 +
-+    <change type="enh">
-+      <para>Allow turning off ESI processing per request by using
-+      <code>set req.esi = off</code>.</para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>Tell the kernel that we expect to use the mmap-ed file in
-+      a random fashion.  On Linux, this turns off/down readahead and
-+      increases performance.</para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>Make it possible to change the maximum number of HTTP
-+      headers we allow by
-+      passing <code>--with-max-header-fields=NUM</code> rather than
-+      changing the code.</para>
-+    </change>
-+
-+    <change type="enh" ref="428">
-+      <para>Implement support for HTTP continuation lines.</para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>Change how connections are closed and only use SO_LINGER
-+      for orderly connection closure.  This should hopefully make
-+      worker threads less prone to hangups on network problems.</para>
-+    </change>
-+
-+    <change type="bug" ref="502">
-+      <para>Handle multi-element purges correctly.  Previously we
-+      ended up with parse errors when this was done from VCL.</para>
-+    </change>
-+
-+    <change type="bug" ref="506, 549">
-+      <para>Handle illegal responses from the backend better by
-+      serving a 503 page rather than panic-ing.</para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>When we run into an assertion that is not true, Varnish
-+      would previously dump a little bit of information about itself.
-+      Extend that information with a backtrace.  Note that this relies
-+      on the varnish binary being unstripped.</para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>Add a session_max parameter that limits the maximum
-+      number of sessions we keep open before we start dropping new
-+      connections summarily.</para>
++    <change type="bug" ref="584">
++      <para>Try harder to not confuse backends when sending them
++      backend probes.  We half-closed the connection, something some
++      backends thought meant we had dropped the connection.  Stop
++      doing so, and add the capability for specifying the expected
++      response code.</para>
 +    </change>
 +
 +    <change type="bug">
-+      <para>Try to consume less memory when doing ESI processing by
-+      properly rolling back used workspace after processing an
-+      object.  This should make it possible to
-+      turn <code>sess_workspace</code> quite a bit for users with
-+      ESI-heavy pages.</para>
++      <para>In 2.0.5, session lingering was turned on.  This caused
++      statistics to not be counted often enough in some cases.  This
++      has now been fixed.</para>
 +    </change>
 +
-+    <change type="enh">
-+      <para>Turn on <code>session_linger</code> by default.  Tests
-+      have shown that <code>session_linger</code> helps a fair bit
-+      with performance.</para>
++    <change type="bug" ref="547">
++      <para>Avoid triggering an assert if the other end closes the
++      connection while we are lingering and waiting for another
++      request from them.</para>
 +    </change>
 +
-+    <change type="enh">
-+      <para>Rewrite the epoll acceptor for better performance.  This
-+      should lead to both higher processing rates and maximum number
-+      of connections on Linux.</para>
++    <change type="bug" ref="577">
++      <para>When generating backtraces, prefer the built-in backtrace
++      function if such exists.  This fixes a problem compiling 2.0.5
++      on Solaris.</para>
 +    </change>
 +
-+    <change type="enh">
-+      <para>Add If-None-Match support, this gives significant
-+      bandwidth savings for users with compliant browsers.</para>
++    <change type="enh" ref="572">
++      <para>Make it possible to specify the per-thread stack size.
++      This might be useful on 32 bit systems with their limited
++      address space.</para>
 +    </change>
 +
-+    <change type="bug" ref="529">
-+      <para>RFC2616 specifies
-+      that <code>ETag</code>, <code>Content-Location</code>, <code>Expires</code>, <code>Cache-Control</code>
-+      and <code>Vary</code> should be emitted when delivering a
-+      response with the 304 response code.</para>
-+    </change>
-+
-+    <change type="bug" ref="531">
-+      <para>Various fixes which makes Varnish compile and work on AIX.</para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>Turn on TCP_DEFER_ACCEPT on Linux.  This should make us
-+      less suspecible to denial of service attacks as well as give us
-+      slightly better performance.</para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>Add an <code>.initial</code> property to the backend
-+      probe specification.  This is the number of good probes we
-+      pretend to have seen.  The default is one less than .threshold,
-+      which means the first probe will decide if we consider the
-+      backend healthy.</para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>Make it possible to compare strings against other
-+      string-like objects, not just plain strings.  This allows you to
-+      compare two headers, for instance.</para>
-+    </change>
-+
-+    <change type="bug">
-+      <para>When support for <code>restart</code>
-+      in <code>vcl_error</code> was added, there was no check to
-+      prevent infinte recursion.  This has now been fixed.
-+     </para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>Turn on purge_dups by default.  This should make us
-+      consume less memory when there are many bans for the same
-+      pattern added.</para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>Add a new log tag called <code>FetchError</code> which
-+      tries to explain why we could not fetch an object from the
-+      backend.</para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>Change the default <code>srcaddr_ttl</code> to 0.  It is
-+      not used by anything and has been removed in the development
-+      version.  This will increase performance somewhat.</para>
-+    </change>
-+
-+  </subsystem>
-+
-+  <subsystem>
-+    <name>varnishtop</name>
-+    <change type="bug" ref="514">
-+      <para>varnishtop did not handle variable-length log fields
-+      correctly. This is now fixed.</para>
-+    </change>
-+
-+    <change type="enh">
-+      <para>varnishtop previously did not print the name of the tag,
-+      which made it very hard to understand.  We now print out the
-+      tag name.</para>
++    <change type="bug" ref="559">
++      <para>Document the <code>-C</code> option
++      to <code>varnishd</code>.</para>
 +    </change>
 +  </subsystem>
 +</group>
-Index: doc/changes-2.0.5.xml
+Index: doc/changes-2.0.6.xml
 ===================================================================
---- doc/changes-2.0.5.xml	(.../tags/varnish-2.0.4/varnish-cache)
-+++ doc/changes-2.0.5.xml	(.../branches/2.0/varnish-cache)
+--- doc/changes-2.0.6.xml	(.../tags/varnish-2.0.5/varnish-cache)
++++ doc/changes-2.0.6.xml	(.../branches/2.0/varnish-cache)
 @@ -0,0 +1,12 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<?xml-stylesheet type="text/xml" href="changes-html.xsl"?>
@@ -391,4536 +118,791 @@ Index: doc/changes-2.0.5.xml
 +<!-- $Id$ -->
 +<changelog xmlns:xi="http://www.w3.org/2001/XInclude">
 +  <package>Varnish</package>
-+  <version>2.0.5</version>
++  <version>2.0.6</version>
 +
-+  <xi:include href="changes-2.0.4-2.0.5.xml"/>
++  <xi:include href="changes-2.0.5-2.0.6.xml"/>
 +</changelog>
 Index: doc/Makefile.am
 ===================================================================
---- doc/Makefile.am	(.../tags/varnish-2.0.4/varnish-cache)
+--- doc/Makefile.am	(.../tags/varnish-2.0.5/varnish-cache)
 +++ doc/Makefile.am	(.../branches/2.0/varnish-cache)
 @@ -1,6 +1,7 @@
  # $Id$
  
  CHANGELOGS = \
-+	changes-2.0.5.html \
++	changes-2.0.6.html \
+ 	changes-2.0.5.html \
  	changes-2.0.4.html \
  	changes-2.0.3.html \
- 	changes-2.0.2.html \
-@@ -12,6 +13,7 @@
+@@ -13,6 +14,7 @@
  	changes-1.0.4.html
  
  XML = \
-+	changes-2.0.4-2.0.5.xml \
++	changes-2.0.5-2.0.6.xml \
+ 	changes-2.0.4-2.0.5.xml \
  	changes-2.0.3-2.0.4.xml \
  	changes-2.0.2-2.0.3.xml \
- 	changes-2.0.1-2.0.2.xml \
-Index: lib/libvarnish/argv.c
-===================================================================
---- lib/libvarnish/argv.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ lib/libvarnish/argv.c	(.../branches/2.0/varnish-cache)
-@@ -43,11 +43,12 @@
- #include <ctype.h>
- #include <stdlib.h>
- #include <stdio.h>
-+#include <string.h>
- #include <stdint.h>
- 
- #include "libvarnish.h"
- 
--static int
-+int
- BackSlash(const char *s, char *res)
- {
- 	int r;
-@@ -103,13 +104,16 @@
- 	return (r);
- }
- 
--static char *
-+char *
- BackSlashDecode(const char *s, const char *e)
- {
- 	const char *q;
- 	char *p, *r;
- 	int i;
- 
-+	if (e == NULL)
-+		e = strchr(s, '\0');
-+	assert(e != NULL);
- 	p = calloc((e - s) + 1, 1);
- 	if (p == NULL)
- 		return (p);
-Index: lib/libvarnish/cli_common.c
-===================================================================
---- lib/libvarnish/cli_common.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ lib/libvarnish/cli_common.c	(.../branches/2.0/varnish-cache)
-@@ -73,7 +73,7 @@
- cli_quote(struct cli *cli, const char *s)
- {
- 
--	vsb_quote(cli->sb, s, 0);
-+	vsb_quote(cli->sb, s, -1, 0);
- }
- 
- void
 Index: lib/libvarnish/tcp.c
 ===================================================================
---- lib/libvarnish/tcp.c	(.../tags/varnish-2.0.4/varnish-cache)
+--- lib/libvarnish/tcp.c	(.../tags/varnish-2.0.5/varnish-cache)
 +++ lib/libvarnish/tcp.c	(.../branches/2.0/varnish-cache)
-@@ -36,6 +36,10 @@
- 
- #include <netinet/in.h>
- 
-+#ifdef __linux
-+#include <netinet/tcp.h>
-+#endif
-+
- #include <errno.h>
- #include <sys/ioctl.h>
- #ifdef HAVE_SYS_FILIO_H
-@@ -113,6 +117,10 @@
- 		printf("Acceptfilter(%d, httpready): %d %s\n",
- 		    sock, i, strerror(errno));
- 	return (i);
-+#elif defined(__linux)
-+	int defer = 1;
-+	setsockopt(sock, SOL_TCP,TCP_DEFER_ACCEPT,(char *) &defer, sizeof(int));
-+	return (0);
- #else
- 	(void)sock;
- 	return (0);
-@@ -222,3 +230,17 @@
- 	AZ(setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout));
- #endif
- }
-+
-+/*--------------------------------------------------------------------
-+ * Set or reset SO_LINGER flag
-+ */
-+ 
-+void
-+TCP_linger(int sock, int linger)
-+{
-+	struct linger lin;
-+
-+	memset(&lin, 0, sizeof lin);
-+	lin.l_onoff = linger;
-+	AZ(setsockopt(sock, SOL_SOCKET, SO_LINGER, &lin, sizeof lin));
-+}
-Index: lib/libvarnish/vsb.c
-===================================================================
---- lib/libvarnish/vsb.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ lib/libvarnish/vsb.c	(.../branches/2.0/varnish-cache)
-@@ -481,25 +481,27 @@
-  * Quote a string
-  */
- void
--vsb_quote(struct vsb *s, const char *p, int how)
-+vsb_quote(struct vsb *s, const char *p, int len, int how)
+@@ -239,8 +239,10 @@
+ TCP_linger(int sock, int linger)
  {
- 	const char *q;
- 	int quote = 0;
+ 	struct linger lin;
++	int i;
  
- 	(void)how;	/* For future enhancements */
-+	if (len == -1)
-+		len = strlen(p);
- 
--	for (q = p; *q != '\0'; q++) {
-+	for (q = p; q < p + len; q++) {
- 		if (!isgraph(*q) || *q == '"') {
- 			quote++;
- 			break;
- 		}
- 	}
- 	if (!quote) {
--		(void)vsb_cat(s, p);
-+		(void)vsb_bcat(s, p, len);
- 		return;
- 	}
- 	(void)vsb_putc(s, '"');
--	for (q = p; *q != '\0'; q++) {
-+	for (q = p; q < p + len; q++) {
- 		switch (*q) {
- 		case ' ':
- 			(void)vsb_putc(s, *q);
-@@ -522,9 +524,66 @@
- 			if (isgraph(*q))
- 				(void)vsb_putc(s, *q);
- 			else
--				(void)vsb_printf(s, "\\%o", *q);
-+				(void)vsb_printf(s, "\\%o", *q & 0xff);
- 			break;
- 		}
- 	}
- 	(void)vsb_putc(s, '"');
+ 	memset(&lin, 0, sizeof lin);
+ 	lin.l_onoff = linger;
+-	AZ(setsockopt(sock, SOL_SOCKET, SO_LINGER, &lin, sizeof lin));
++	i = setsockopt(sock, SOL_SOCKET, SO_LINGER, &lin, sizeof lin);
++	assert(i == 0 || errno == EBADF);
  }
-+
-+/*
-+ * Unquote a string
-+ */
-+const char *
-+vsb_unquote(struct vsb *s, const char *p, int len, int how)
-+{
-+	const char *q;
-+	char *r;
-+	unsigned long u;
-+	char c;
-+
-+	(void)how;	/* For future enhancements */
-+
-+	if (len == -1)
-+		len = strlen(p);
-+
-+	for (q = p; q < p + len; q++) {
-+		if (*q != '\\') {
-+			(void)vsb_bcat(s, q, 1);
-+			continue;
-+		}
-+		if (++q >= p + len)
-+			return ("Incomplete '\\'-sequence at end of string");
-+
-+		switch(*q) {
-+		case 'n':
-+			(void)vsb_bcat(s, "\n", 1);
-+			continue;
-+		case 'r':
-+			(void)vsb_bcat(s, "\r", 1);
-+			continue;
-+		case 't':
-+			(void)vsb_bcat(s, "\t", 1);
-+			continue;
-+		case '0':
-+		case '1':
-+		case '2':
-+		case '3':
-+		case '4':
-+		case '5':
-+		case '6':
-+		case '7':
-+			errno = 0;
-+			u = strtoul(q, &r, 8);
-+			if (errno != 0 || (u & ~0xff))
-+				return ("\\ooo sequence out of range");
-+			c = (char)u;
-+			(void)vsb_bcat(s, &c, 1);
-+			q = r - 1;
-+			continue;
-+		default:
-+			(void)vsb_bcat(s, q, 1);
-+		}
-+	}
-+	return (NULL);
-+}
 Index: lib/libvarnishcompat/execinfo.c
 ===================================================================
---- lib/libvarnishcompat/execinfo.c	(.../tags/varnish-2.0.4/varnish-cache)
+--- lib/libvarnishcompat/execinfo.c	(.../tags/varnish-2.0.5/varnish-cache)
 +++ lib/libvarnishcompat/execinfo.c	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,451 @@
-+/*
-+ * Copyright (c) 2003 Maxim Sobolev <sobomax@FreeBSD.org>
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
-+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
-+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-+ * SUCH DAMAGE.
-+ *
-+ * $Id$
-+ */
-+
-+#include "config.h"
-+
-+#include <sys/types.h>
-+#include <sys/uio.h>
-+#include <dlfcn.h>
-+#include <math.h>
-+#include <stddef.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <unistd.h>
+@@ -28,6 +28,12 @@
+ 
+ #include "config.h"
+ 
++#ifndef HAVE_BACKTRACE
 +
 +#include "compat/execinfo.h"
 +
-+void *getreturnaddr(int);
-+void *getframeaddr(int);
++#if defined (__GNUC__) && __GNUC__ >= 4	/* XXX Correct version to check for ? */
 +
-+#define D10(x) ceil(log10(((x) == 0) ? 2 : ((x) + 1)))
+ #include <sys/types.h>
+ #include <sys/uio.h>
+ #include <dlfcn.h>
+@@ -38,10 +44,9 @@
+ #include <string.h>
+ #include <unistd.h>
+ 
+-#include "compat/execinfo.h"
+ 
+-void *getreturnaddr(int);
+-void *getframeaddr(int);
++static void *getreturnaddr(int);
++static void *getframeaddr(int);
+ 
+ #define D10(x) ceil(log10(((x) == 0) ? 2 : ((x) + 1)))
+ 
+@@ -132,51 +137,7 @@
+     return rval;
+ }
+ 
+-#if 0
+-void
+-backtrace_symbols_fd(void *const *buffer, int size, int fd)
+-{
+-    int i, len, offset;
+-    char *buf;
+-    Dl_info info;
+-
+-    for (i = 0; i < size; i++) {
+-        if (dladdr(buffer[i], &info) != 0) {
+-            if (info.dli_sname == NULL)
+-                info.dli_sname = "???";
+-            if (info.dli_saddr == NULL)
+-                info.dli_saddr = buffer[i];
+-            offset = (const char *)buffer[i] - (const char *)info.dli_saddr;
+-            /* "0x01234567 <function+offset> at filename" */
+-            len = 2 +                      /* "0x" */
+-                  (sizeof(void *) * 2) +   /* "01234567" */
+-                  2 +                      /* " <" */
+-                  strlen(info.dli_sname) + /* "function" */
+-                  1 +                      /* "+" */
+-                  D10(offset) +            /* "offset */
+-                  5 +                      /* "> at " */
+-                  strlen(info.dli_fname) + /* "filename" */
+-                  2;                       /* "\n\0" */
+-            buf = alloca(len);
+-            if (buf == NULL)
+-                return;
+-            snprintf(buf, len, "%p <%s+%d> at %s\n",
+-              buffer[i], info.dli_sname, offset, info.dli_fname);
+-        } else {
+-            len = 2 +                      /* "0x" */
+-                  (sizeof(void *) * 2) +   /* "01234567" */
+-                  2;                       /* "\n\0" */
+-            buf = alloca(len);
+-            if (buf == NULL)
+-                return;
+-            snprintf(buf, len, "%p\n", buffer[i]);
+-        }
+-        write(fd, buf, len - 1);
+-    }
+-}
+-#endif
+-
+-void *
++static void *
+ getreturnaddr(int level)
+ {
+ 
+@@ -313,7 +274,7 @@
+     }
+ }
+ 
+-void *
++static void *
+ getframeaddr(int level)
+ {
+ 
+@@ -449,3 +410,24 @@
+     default: return NULL;
+     }
+ }
 +
-+inline static void *
-+realloc_safe(void *ptr, size_t size)
-+{
-+    void *nptr;
-+
-+    nptr = realloc(ptr, size);
-+    if (nptr == NULL)
-+        free(ptr);
-+    return nptr;
-+}
++#else
 +
 +int
 +backtrace(void **buffer, int size)
 +{
-+    int i;
-+
-+    for (i = 1; getframeaddr(i + 1) != NULL && i != size + 1; i++) {
-+        buffer[i - 1] = getreturnaddr(i);
-+        if (buffer[i - 1] == NULL)
-+            break;
-+    }
-+
-+    return i - 1;
++	(void)buffer;
++	(void)size;
++	return (0);
 +}
 +
 +char **
 +backtrace_symbols(void *const *buffer, int size)
 +{
-+    size_t clen, alen;
-+    int i;
-+    char **rval;
-+
-+    clen = size * sizeof(char *);
-+    rval = malloc(clen);
-+    if (rval == NULL)
-+        return NULL;
-+    for (i = 0; i < size; i++) {
-+
-+#ifdef HAVE_DLADDR
-+    {
-+        Dl_info info;
-+	int offset;
-+
-+        if (dladdr(buffer[i], &info) != 0) {
-+            if (info.dli_sname == NULL)
-+                info.dli_sname = "???";
-+            if (info.dli_saddr == NULL)
-+                info.dli_saddr = buffer[i];
-+            offset = (const char*)buffer[i] - (const char*)info.dli_saddr;
-+            /* "0x01234567 <function+offset> at filename" */
-+            alen = 2 +                      /* "0x" */
-+                   (sizeof(void *) * 2) +   /* "01234567" */
-+                   2 +                      /* " <" */
-+                   strlen(info.dli_sname) + /* "function" */
-+                   1 +                      /* "+" */
-+                   10 +                     /* "offset */
-+                   5 +                      /* "> at " */
-+                   strlen(info.dli_fname) + /* "filename" */
-+                   1;                       /* "\0" */
-+            rval = realloc_safe(rval, clen + alen);
-+            if (rval == NULL)
-+                return NULL;
-+            snprintf((char *) rval + clen, alen, "%p <%s+%d> at %s",
-+              buffer[i], info.dli_sname, offset, info.dli_fname);
-+            rval[i] = (char *) clen;
-+            clen += alen;
-+	    continue;
-+        } 
-+    }
-+#endif
-+	alen = 2 +                      /* "0x" */
-+	       (sizeof(void *) * 2) +   /* "01234567" */
-+	       1;                       /* "\0" */
-+	rval = realloc_safe(rval, clen + alen);
-+	if (rval == NULL)
-+	    return NULL;
-+	snprintf((char *) rval + clen, alen, "%p", buffer[i]);
-+        rval[i] = (char *) clen;
-+        clen += alen;
-+    }
-+
-+    for (i = 0; i < size; i++)
-+        rval[i] += (long) rval;
-+
-+    return rval;
++	(void)buffer;
++	(void)size;
++	return (0);
 +}
 +
-+#if 0
-+void
-+backtrace_symbols_fd(void *const *buffer, int size, int fd)
-+{
-+    int i, len, offset;
-+    char *buf;
-+    Dl_info info;
-+
-+    for (i = 0; i < size; i++) {
-+        if (dladdr(buffer[i], &info) != 0) {
-+            if (info.dli_sname == NULL)
-+                info.dli_sname = "???";
-+            if (info.dli_saddr == NULL)
-+                info.dli_saddr = buffer[i];
-+            offset = (const char *)buffer[i] - (const char *)info.dli_saddr;
-+            /* "0x01234567 <function+offset> at filename" */
-+            len = 2 +                      /* "0x" */
-+                  (sizeof(void *) * 2) +   /* "01234567" */
-+                  2 +                      /* " <" */
-+                  strlen(info.dli_sname) + /* "function" */
-+                  1 +                      /* "+" */
-+                  D10(offset) +            /* "offset */
-+                  5 +                      /* "> at " */
-+                  strlen(info.dli_fname) + /* "filename" */
-+                  2;                       /* "\n\0" */
-+            buf = alloca(len);
-+            if (buf == NULL)
-+                return;
-+            snprintf(buf, len, "%p <%s+%d> at %s\n",
-+              buffer[i], info.dli_sname, offset, info.dli_fname);
-+        } else {
-+            len = 2 +                      /* "0x" */
-+                  (sizeof(void *) * 2) +   /* "01234567" */
-+                  2;                       /* "\n\0" */
-+            buf = alloca(len);
-+            if (buf == NULL)
-+                return;
-+            snprintf(buf, len, "%p\n", buffer[i]);
-+        }
-+        write(fd, buf, len - 1);
-+    }
-+}
-+#endif
-+
-+void *
-+getreturnaddr(int level)
-+{
-+
-+    switch(level) {
-+    case 0: return __builtin_return_address(1);
-+    case 1: return __builtin_return_address(2);
-+    case 2: return __builtin_return_address(3);
-+    case 3: return __builtin_return_address(4);
-+    case 4: return __builtin_return_address(5);
-+    case 5: return __builtin_return_address(6);
-+    case 6: return __builtin_return_address(7);
-+    case 7: return __builtin_return_address(8);
-+    case 8: return __builtin_return_address(9);
-+    case 9: return __builtin_return_address(10);
-+    case 10: return __builtin_return_address(11);
-+    case 11: return __builtin_return_address(12);
-+    case 12: return __builtin_return_address(13);
-+    case 13: return __builtin_return_address(14);
-+    case 14: return __builtin_return_address(15);
-+    case 15: return __builtin_return_address(16);
-+    case 16: return __builtin_return_address(17);
-+    case 17: return __builtin_return_address(18);
-+    case 18: return __builtin_return_address(19);
-+    case 19: return __builtin_return_address(20);
-+    case 20: return __builtin_return_address(21);
-+    case 21: return __builtin_return_address(22);
-+    case 22: return __builtin_return_address(23);
-+    case 23: return __builtin_return_address(24);
-+    case 24: return __builtin_return_address(25);
-+    case 25: return __builtin_return_address(26);
-+    case 26: return __builtin_return_address(27);
-+    case 27: return __builtin_return_address(28);
-+    case 28: return __builtin_return_address(29);
-+    case 29: return __builtin_return_address(30);
-+    case 30: return __builtin_return_address(31);
-+    case 31: return __builtin_return_address(32);
-+    case 32: return __builtin_return_address(33);
-+    case 33: return __builtin_return_address(34);
-+    case 34: return __builtin_return_address(35);
-+    case 35: return __builtin_return_address(36);
-+    case 36: return __builtin_return_address(37);
-+    case 37: return __builtin_return_address(38);
-+    case 38: return __builtin_return_address(39);
-+    case 39: return __builtin_return_address(40);
-+    case 40: return __builtin_return_address(41);
-+    case 41: return __builtin_return_address(42);
-+    case 42: return __builtin_return_address(43);
-+    case 43: return __builtin_return_address(44);
-+    case 44: return __builtin_return_address(45);
-+    case 45: return __builtin_return_address(46);
-+    case 46: return __builtin_return_address(47);
-+    case 47: return __builtin_return_address(48);
-+    case 48: return __builtin_return_address(49);
-+    case 49: return __builtin_return_address(50);
-+    case 50: return __builtin_return_address(51);
-+    case 51: return __builtin_return_address(52);
-+    case 52: return __builtin_return_address(53);
-+    case 53: return __builtin_return_address(54);
-+    case 54: return __builtin_return_address(55);
-+    case 55: return __builtin_return_address(56);
-+    case 56: return __builtin_return_address(57);
-+    case 57: return __builtin_return_address(58);
-+    case 58: return __builtin_return_address(59);
-+    case 59: return __builtin_return_address(60);
-+    case 60: return __builtin_return_address(61);
-+    case 61: return __builtin_return_address(62);
-+    case 62: return __builtin_return_address(63);
-+    case 63: return __builtin_return_address(64);
-+    case 64: return __builtin_return_address(65);
-+    case 65: return __builtin_return_address(66);
-+    case 66: return __builtin_return_address(67);
-+    case 67: return __builtin_return_address(68);
-+    case 68: return __builtin_return_address(69);
-+    case 69: return __builtin_return_address(70);
-+    case 70: return __builtin_return_address(71);
-+    case 71: return __builtin_return_address(72);
-+    case 72: return __builtin_return_address(73);
-+    case 73: return __builtin_return_address(74);
-+    case 74: return __builtin_return_address(75);
-+    case 75: return __builtin_return_address(76);
-+    case 76: return __builtin_return_address(77);
-+    case 77: return __builtin_return_address(78);
-+    case 78: return __builtin_return_address(79);
-+    case 79: return __builtin_return_address(80);
-+    case 80: return __builtin_return_address(81);
-+    case 81: return __builtin_return_address(82);
-+    case 82: return __builtin_return_address(83);
-+    case 83: return __builtin_return_address(84);
-+    case 84: return __builtin_return_address(85);
-+    case 85: return __builtin_return_address(86);
-+    case 86: return __builtin_return_address(87);
-+    case 87: return __builtin_return_address(88);
-+    case 88: return __builtin_return_address(89);
-+    case 89: return __builtin_return_address(90);
-+    case 90: return __builtin_return_address(91);
-+    case 91: return __builtin_return_address(92);
-+    case 92: return __builtin_return_address(93);
-+    case 93: return __builtin_return_address(94);
-+    case 94: return __builtin_return_address(95);
-+    case 95: return __builtin_return_address(96);
-+    case 96: return __builtin_return_address(97);
-+    case 97: return __builtin_return_address(98);
-+    case 98: return __builtin_return_address(99);
-+    case 99: return __builtin_return_address(100);
-+    case 100: return __builtin_return_address(101);
-+    case 101: return __builtin_return_address(102);
-+    case 102: return __builtin_return_address(103);
-+    case 103: return __builtin_return_address(104);
-+    case 104: return __builtin_return_address(105);
-+    case 105: return __builtin_return_address(106);
-+    case 106: return __builtin_return_address(107);
-+    case 107: return __builtin_return_address(108);
-+    case 108: return __builtin_return_address(109);
-+    case 109: return __builtin_return_address(110);
-+    case 110: return __builtin_return_address(111);
-+    case 111: return __builtin_return_address(112);
-+    case 112: return __builtin_return_address(113);
-+    case 113: return __builtin_return_address(114);
-+    case 114: return __builtin_return_address(115);
-+    case 115: return __builtin_return_address(116);
-+    case 116: return __builtin_return_address(117);
-+    case 117: return __builtin_return_address(118);
-+    case 118: return __builtin_return_address(119);
-+    case 119: return __builtin_return_address(120);
-+    case 120: return __builtin_return_address(121);
-+    case 121: return __builtin_return_address(122);
-+    case 122: return __builtin_return_address(123);
-+    case 123: return __builtin_return_address(124);
-+    case 124: return __builtin_return_address(125);
-+    case 125: return __builtin_return_address(126);
-+    case 126: return __builtin_return_address(127);
-+    case 127: return __builtin_return_address(128);
-+    default: return NULL;
-+    }
-+}
-+
-+void *
-+getframeaddr(int level)
-+{
-+
-+    switch(level) {
-+    case 0: return __builtin_frame_address(1);
-+    case 1: return __builtin_frame_address(2);
-+    case 2: return __builtin_frame_address(3);
-+    case 3: return __builtin_frame_address(4);
-+    case 4: return __builtin_frame_address(5);
-+    case 5: return __builtin_frame_address(6);
-+    case 6: return __builtin_frame_address(7);
-+    case 7: return __builtin_frame_address(8);
-+    case 8: return __builtin_frame_address(9);
-+    case 9: return __builtin_frame_address(10);
-+    case 10: return __builtin_frame_address(11);
-+    case 11: return __builtin_frame_address(12);
-+    case 12: return __builtin_frame_address(13);
-+    case 13: return __builtin_frame_address(14);
-+    case 14: return __builtin_frame_address(15);
-+    case 15: return __builtin_frame_address(16);
-+    case 16: return __builtin_frame_address(17);
-+    case 17: return __builtin_frame_address(18);
-+    case 18: return __builtin_frame_address(19);
-+    case 19: return __builtin_frame_address(20);
-+    case 20: return __builtin_frame_address(21);
-+    case 21: return __builtin_frame_address(22);
-+    case 22: return __builtin_frame_address(23);
-+    case 23: return __builtin_frame_address(24);
-+    case 24: return __builtin_frame_address(25);
-+    case 25: return __builtin_frame_address(26);
-+    case 26: return __builtin_frame_address(27);
-+    case 27: return __builtin_frame_address(28);
-+    case 28: return __builtin_frame_address(29);
-+    case 29: return __builtin_frame_address(30);
-+    case 30: return __builtin_frame_address(31);
-+    case 31: return __builtin_frame_address(32);
-+    case 32: return __builtin_frame_address(33);
-+    case 33: return __builtin_frame_address(34);
-+    case 34: return __builtin_frame_address(35);
-+    case 35: return __builtin_frame_address(36);
-+    case 36: return __builtin_frame_address(37);
-+    case 37: return __builtin_frame_address(38);
-+    case 38: return __builtin_frame_address(39);
-+    case 39: return __builtin_frame_address(40);
-+    case 40: return __builtin_frame_address(41);
-+    case 41: return __builtin_frame_address(42);
-+    case 42: return __builtin_frame_address(43);
-+    case 43: return __builtin_frame_address(44);
-+    case 44: return __builtin_frame_address(45);
-+    case 45: return __builtin_frame_address(46);
-+    case 46: return __builtin_frame_address(47);
-+    case 47: return __builtin_frame_address(48);
-+    case 48: return __builtin_frame_address(49);
-+    case 49: return __builtin_frame_address(50);
-+    case 50: return __builtin_frame_address(51);
-+    case 51: return __builtin_frame_address(52);
-+    case 52: return __builtin_frame_address(53);
-+    case 53: return __builtin_frame_address(54);
-+    case 54: return __builtin_frame_address(55);
-+    case 55: return __builtin_frame_address(56);
-+    case 56: return __builtin_frame_address(57);
-+    case 57: return __builtin_frame_address(58);
-+    case 58: return __builtin_frame_address(59);
-+    case 59: return __builtin_frame_address(60);
-+    case 60: return __builtin_frame_address(61);
-+    case 61: return __builtin_frame_address(62);
-+    case 62: return __builtin_frame_address(63);
-+    case 63: return __builtin_frame_address(64);
-+    case 64: return __builtin_frame_address(65);
-+    case 65: return __builtin_frame_address(66);
-+    case 66: return __builtin_frame_address(67);
-+    case 67: return __builtin_frame_address(68);
-+    case 68: return __builtin_frame_address(69);
-+    case 69: return __builtin_frame_address(70);
-+    case 70: return __builtin_frame_address(71);
-+    case 71: return __builtin_frame_address(72);
-+    case 72: return __builtin_frame_address(73);
-+    case 73: return __builtin_frame_address(74);
-+    case 74: return __builtin_frame_address(75);
-+    case 75: return __builtin_frame_address(76);
-+    case 76: return __builtin_frame_address(77);
-+    case 77: return __builtin_frame_address(78);
-+    case 78: return __builtin_frame_address(79);
-+    case 79: return __builtin_frame_address(80);
-+    case 80: return __builtin_frame_address(81);
-+    case 81: return __builtin_frame_address(82);
-+    case 82: return __builtin_frame_address(83);
-+    case 83: return __builtin_frame_address(84);
-+    case 84: return __builtin_frame_address(85);
-+    case 85: return __builtin_frame_address(86);
-+    case 86: return __builtin_frame_address(87);
-+    case 87: return __builtin_frame_address(88);
-+    case 88: return __builtin_frame_address(89);
-+    case 89: return __builtin_frame_address(90);
-+    case 90: return __builtin_frame_address(91);
-+    case 91: return __builtin_frame_address(92);
-+    case 92: return __builtin_frame_address(93);
-+    case 93: return __builtin_frame_address(94);
-+    case 94: return __builtin_frame_address(95);
-+    case 95: return __builtin_frame_address(96);
-+    case 96: return __builtin_frame_address(97);
-+    case 97: return __builtin_frame_address(98);
-+    case 98: return __builtin_frame_address(99);
-+    case 99: return __builtin_frame_address(100);
-+    case 100: return __builtin_frame_address(101);
-+    case 101: return __builtin_frame_address(102);
-+    case 102: return __builtin_frame_address(103);
-+    case 103: return __builtin_frame_address(104);
-+    case 104: return __builtin_frame_address(105);
-+    case 105: return __builtin_frame_address(106);
-+    case 106: return __builtin_frame_address(107);
-+    case 107: return __builtin_frame_address(108);
-+    case 108: return __builtin_frame_address(109);
-+    case 109: return __builtin_frame_address(110);
-+    case 110: return __builtin_frame_address(111);
-+    case 111: return __builtin_frame_address(112);
-+    case 112: return __builtin_frame_address(113);
-+    case 113: return __builtin_frame_address(114);
-+    case 114: return __builtin_frame_address(115);
-+    case 115: return __builtin_frame_address(116);
-+    case 116: return __builtin_frame_address(117);
-+    case 117: return __builtin_frame_address(118);
-+    case 118: return __builtin_frame_address(119);
-+    case 119: return __builtin_frame_address(120);
-+    case 120: return __builtin_frame_address(121);
-+    case 121: return __builtin_frame_address(122);
-+    case 122: return __builtin_frame_address(123);
-+    case 123: return __builtin_frame_address(124);
-+    case 124: return __builtin_frame_address(125);
-+    case 125: return __builtin_frame_address(126);
-+    case 126: return __builtin_frame_address(127);
-+    case 127: return __builtin_frame_address(128);
-+    default: return NULL;
-+    }
-+}
-Index: lib/libvarnishcompat/Makefile.am
-===================================================================
---- lib/libvarnishcompat/Makefile.am	(.../tags/varnish-2.0.4/varnish-cache)
-+++ lib/libvarnishcompat/Makefile.am	(.../branches/2.0/varnish-cache)
-@@ -9,6 +9,7 @@
- libvarnishcompat_la_SOURCES = \
- 	asprintf.c \
- 	daemon.c \
-+	execinfo.c \
- 	vasprintf.c \
- 	setproctitle.c \
- 	srandomdev.c \
-Index: lib/libvcl/vcc_gen_obj.tcl
-===================================================================
---- lib/libvcl/vcc_gen_obj.tcl	(.../tags/varnish-2.0.4/varnish-cache)
-+++ lib/libvcl/vcc_gen_obj.tcl	(.../branches/2.0/varnish-cache)
-@@ -116,6 +116,12 @@
- 	"struct sess *"
-     }
- 
-+    { req.esi
-+ 	RW BOOL
-+ 	{recv fetch deliver					   error}
-+ 	"struct sess *"
-+    }
-+
-     # Request sent to backend
-     { bereq.request
- 	RW STRING
-Index: lib/libvcl/vcc_parse.c
-===================================================================
---- lib/libvcl/vcc_parse.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ lib/libvcl/vcc_parse.c	(.../branches/2.0/varnish-cache)
-@@ -263,10 +263,11 @@
- 		Fb(tl, 1, "%sVRT_strcmp(%s, ",
- 		    tl->t->tok == T_EQ ? "!" : "", vp->rname);
- 		vcc_NextToken(tl);
--		ExpectErr(tl, CSTR);
--		EncToken(tl->fb, tl->t);
-+		if (!vcc_StringVal(tl)) {
-+			vcc_ExpectedStringval(tl);
-+			break;
-+		}
- 		Fb(tl, 0, ")\n");
--		vcc_NextToken(tl);
- 		break;
- 	default:
- 		Fb(tl, 1, "%s != (void*)0\n", vp->rname);
-Index: lib/libvcl/vcc_obj.c
-===================================================================
---- lib/libvcl/vcc_obj.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ lib/libvcl/vcc_obj.c	(.../branches/2.0/varnish-cache)
-@@ -102,6 +102,11 @@
- 	     | VCL_MET_MISS | VCL_MET_HIT | VCL_MET_FETCH | VCL_MET_DELIVER
- 	     | VCL_MET_ERROR
- 	},
-+	{ "req.esi", BOOL, 7,
-+	    "VRT_r_req_esi(sp)",	    "VRT_l_req_esi(sp, ",
-+	    V_RW,	    0,
-+	    VCL_MET_RECV | VCL_MET_FETCH | VCL_MET_DELIVER | VCL_MET_ERROR
-+	},
- 	{ "bereq.request", STRING, 13,
- 	    "VRT_r_bereq_request(sp)",	    "VRT_l_bereq_request(sp, ",
- 	    V_RW,	    0,
++#endif /*  (__GNUC__) && __GNUC__ >= 4 */
++#endif /* HAVE_BACKTRACE */
 Index: lib/libvcl/vcc_backend.c
 ===================================================================
---- lib/libvcl/vcc_backend.c	(.../tags/varnish-2.0.4/varnish-cache)
+--- lib/libvcl/vcc_backend.c	(.../tags/varnish-2.0.5/varnish-cache)
 +++ lib/libvcl/vcc_backend.c	(.../branches/2.0/varnish-cache)
-@@ -340,7 +340,8 @@
- 	struct fld_spec *fs;
+@@ -341,11 +341,12 @@
  	struct token *t_field;
  	struct token *t_did = NULL, *t_window = NULL, *t_threshold = NULL;
--	unsigned window, threshold;
-+	struct token *t_initial = NULL;
-+	unsigned window, threshold, initial;
+ 	struct token *t_initial = NULL;
+-	unsigned window, threshold, initial;
++	unsigned window, threshold, initial, status;
  
  	fs = vcc_FldSpec(tl,
  	    "?url",
-@@ -349,6 +350,7 @@
+ 	    "?request",
++	    "?expected_response",
+ 	    "?timeout",
  	    "?interval",
  	    "?window",
- 	    "?threshold",
-+	    "?initial",
- 	    NULL);
- 
- 	ExpectErr(tl, '{');
-@@ -356,6 +358,7 @@
- 
+@@ -359,6 +360,7 @@
  	window = 0;
  	threshold = 0;
-+	initial = 0;
+ 	initial = 0;
++	status = 0;
  	Fb(tl, 0, "\t.probe = {\n");
  	while (tl->t->tok != '}') {
  
-@@ -396,6 +399,11 @@
- 			window = vcc_UintVal(tl);
+@@ -404,6 +406,17 @@
+ 			initial = vcc_UintVal(tl);
  			vcc_NextToken(tl);
  			ERRCHK(tl);
-+		} else if (vcc_IdIs(t_field, "initial")) {
-+			t_initial = tl->t;
-+			initial = vcc_UintVal(tl);
++		} else if (vcc_IdIs(t_field, "expected_response")) {
++			status = vcc_UintVal(tl);
++			if (status < 100 || status > 999) {
++				vsb_printf(tl->sb,
++				    "Must specify .status with exactly three "
++				    " digits (100 <= x <= 999)\n");
++				vcc_ErrWhere(tl, tl->t);
++				return;
++			}
 +			vcc_NextToken(tl);
 +			ERRCHK(tl);
  		} else if (vcc_IdIs(t_field, "threshold")) {
  			t_threshold = tl->t;
  			threshold = vcc_UintVal(tl);
-@@ -441,8 +449,12 @@
- 			vcc_ErrWhere(tl, t_window);
- 		}
- 		Fb(tl, 0, "\t\t.window = %u,\n", window);
--		Fb(tl, 0, "\t\t.threshold = %u\n", threshold);
-+		Fb(tl, 0, "\t\t.threshold = %u,\n", threshold);
- 	}
-+	if (t_initial != NULL) 
-+		Fb(tl, 0, "\t\t.initial = %u,\n", initial);
-+	else
-+		Fb(tl, 0, "\t\t.initial = ~0U,\n", initial);
+@@ -455,6 +468,8 @@
+ 		Fb(tl, 0, "\t\t.initial = %u,\n", initial);
+ 	else
+ 		Fb(tl, 0, "\t\t.initial = ~0U,\n", initial);
++	if (status > 0)
++		Fb(tl, 0, "\t\t.exp_status = %u,\n", status);
  	Fb(tl, 0, "\t},\n");
  	ExpectErr(tl, '}');
  	vcc_NextToken(tl);
 Index: lib/libvcl/vcc_fixed_token.c
 ===================================================================
---- lib/libvcl/vcc_fixed_token.c	(.../tags/varnish-2.0.4/varnish-cache)
+--- lib/libvcl/vcc_fixed_token.c	(.../tags/varnish-2.0.5/varnish-cache)
 +++ lib/libvcl/vcc_fixed_token.c	(.../branches/2.0/varnish-cache)
-@@ -235,8 +235,8 @@
- 	vsb_cat(sb, " * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWI");
- 	vsb_cat(sb, "SE) ARISING IN ANY WAY\n * OUT OF THE USE OF THIS SOFT");
- 	vsb_cat(sb, "WARE, EVEN IF ADVISED OF THE POSSIBILITY OF\n");
--	vsb_cat(sb, " * SUCH DAMAGE.\n *\n * $Id: vrt.h 3724 2009-02-10 14:");
--	vsb_cat(sb, "58:17Z tfheen $\n *\n * Runtime support for compiled V");
-+	vsb_cat(sb, " * SUCH DAMAGE.\n *\n * $Id: vrt.h 4303 2009-10-08 13:");
-+	vsb_cat(sb, "58:25Z tfheen $\n *\n * Runtime support for compiled V");
- 	vsb_cat(sb, "CL programs.\n *\n * XXX: When this file is changed, l");
- 	vsb_cat(sb, "ib/libvcl/vcc_gen_fixed_token.tcl\n");
- 	vsb_cat(sb, " * XXX: *MUST* be rerun.\n */\n");
-@@ -247,12 +247,12 @@
+@@ -246,13 +246,14 @@
+ 	vsb_cat(sb, "on\n */\n\nextern void *vrt_magic_string_end;\n");
  	vsb_cat(sb, "\nstruct vrt_backend_probe {\n\tconst char\t*url;\n");
  	vsb_cat(sb, "\tconst char\t*request;\n\tdouble\t\ttimeout;\n");
- 	vsb_cat(sb, "\tdouble\t\tinterval;\n\tunsigned\twindow;\n");
--	vsb_cat(sb, "\tunsigned\tthreshold;\n};\n\n/*\n");
--	vsb_cat(sb, " * A backend is a host+port somewhere on the network\n");
--	vsb_cat(sb, " */\nstruct vrt_backend {\n\tconst char\t\t\t*vcl_name");
--	vsb_cat(sb, ";\n\tconst char\t\t\t*ident;\n\n");
--	vsb_cat(sb, "\tconst char\t\t\t*hosthdr;\n\n");
--	vsb_cat(sb, "\tconst unsigned char\t\t*ipv4_sockaddr;\n");
-+	vsb_cat(sb, "\tunsigned\tthreshold;\n\tunsigned\tinitial;\n");
-+	vsb_cat(sb, "};\n\n/*\n * A backend is a host+port somewhere on the");
-+	vsb_cat(sb, " network\n */\nstruct vrt_backend {\n");
-+	vsb_cat(sb, "\tconst char\t\t\t*vcl_name;\n\tconst char\t\t\t*ident");
-+	vsb_cat(sb, ";\n\n\tconst char\t\t\t*hosthdr;\n");
-+	vsb_cat(sb, "\n\tconst unsigned char\t\t*ipv4_sockaddr;\n");
+-	vsb_cat(sb, "\tdouble\t\tinterval;\n\tunsigned\twindow;\n");
+-	vsb_cat(sb, "\tunsigned\tthreshold;\n\tunsigned\tinitial;\n");
+-	vsb_cat(sb, "};\n\n/*\n * A backend is a host+port somewhere on the");
+-	vsb_cat(sb, " network\n */\nstruct vrt_backend {\n");
+-	vsb_cat(sb, "\tconst char\t\t\t*vcl_name;\n\tconst char\t\t\t*ident");
+-	vsb_cat(sb, ";\n\n\tconst char\t\t\t*hosthdr;\n");
+-	vsb_cat(sb, "\n\tconst unsigned char\t\t*ipv4_sockaddr;\n");
++	vsb_cat(sb, "\tdouble\t\tinterval;\n\tunsigned\texp_status;\n");
++	vsb_cat(sb, "\tunsigned\twindow;\n\tunsigned\tthreshold;\n");
++	vsb_cat(sb, "\tunsigned\tinitial;\n};\n\n/*\n");
++	vsb_cat(sb, " * A backend is a host+port somewhere on the network\n");
++	vsb_cat(sb, " */\nstruct vrt_backend {\n\tconst char\t\t\t*vcl_name");
++	vsb_cat(sb, ";\n\tconst char\t\t\t*ident;\n\n");
++	vsb_cat(sb, "\tconst char\t\t\t*hosthdr;\n\n");
++	vsb_cat(sb, "\tconst unsigned char\t\t*ipv4_sockaddr;\n");
  	vsb_cat(sb, "\tconst unsigned char\t\t*ipv6_sockaddr;\n");
  	vsb_cat(sb, "\n\tdouble\t\t\t\tconnect_timeout;\n");
  	vsb_cat(sb, "\tdouble\t\t\t\tfirst_byte_timeout;\n");
-@@ -324,9 +324,9 @@
+@@ -324,9 +325,9 @@
  
  	/* ../../include/vrt_obj.h */
  
--	vsb_cat(sb, "/*\n * $Id: vrt_obj.h 3990 2009-03-23 12:37:42Z tfheen");
--	vsb_cat(sb, " $\n *\n * NB:  This file is machine generated, DO NOT");
--	vsb_cat(sb, " EDIT!\n *\n * Edit vcc_gen_obj.tcl instead\n");
-+	vsb_cat(sb, "/*\n * $Id: vcc_gen_obj.tcl 4082 2009-05-19 07:14:00Z ");
-+	vsb_cat(sb, "sky $\n *\n * NB:  This file is machine generated, DO ");
-+	vsb_cat(sb, "NOT EDIT!\n *\n * Edit vcc_gen_obj.tcl instead\n");
+-	vsb_cat(sb, "/*\n * $Id: vcc_gen_obj.tcl 4082 2009-05-19 07:14:00Z ");
+-	vsb_cat(sb, "sky $\n *\n * NB:  This file is machine generated, DO ");
+-	vsb_cat(sb, "NOT EDIT!\n *\n * Edit vcc_gen_obj.tcl instead\n");
++	vsb_cat(sb, "/*\n * $Id$\n");
++	vsb_cat(sb, " *\n * NB:  This file is machine generated, DO NOT EDI");
++	vsb_cat(sb, "T!\n *\n * Edit vcc_gen_obj.tcl instead\n");
  	vsb_cat(sb, " */\n\nstruct sockaddr * VRT_r_client_ip(const struct ");
  	vsb_cat(sb, "sess *);\nstruct sockaddr * VRT_r_server_ip(struct ses");
  	vsb_cat(sb, "s *);\nconst char * VRT_r_server_hostname(struct sess ");
-@@ -345,6 +345,8 @@
- 	vsb_cat(sb, "uct sess *);\ndouble VRT_r_req_grace(struct sess *);\n");
- 	vsb_cat(sb, "void VRT_l_req_grace(struct sess *, double);\n");
- 	vsb_cat(sb, "const char * VRT_r_req_xid(struct sess *);\n");
-+	vsb_cat(sb, "unsigned VRT_r_req_esi(struct sess *);\n");
-+	vsb_cat(sb, "void VRT_l_req_esi(struct sess *, unsigned);\n");
- 	vsb_cat(sb, "const char * VRT_r_bereq_request(const struct sess *);");
- 	vsb_cat(sb, "\nvoid VRT_l_bereq_request(const struct sess *, const ");
- 	vsb_cat(sb, "char *, ...);\nconst char * VRT_r_bereq_url(const stru");
-Index: lib/libvcl/vcc_acl.c
+Index: lib/libjemalloc/jemalloc_linux.c
 ===================================================================
---- lib/libvcl/vcc_acl.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ lib/libvcl/vcc_acl.c	(.../branches/2.0/varnish-cache)
-@@ -250,14 +250,18 @@
- {
- 	unsigned char b[4];
- 	int i, j, k;
-+	unsigned u;
- 	const char *p;
+--- lib/libjemalloc/jemalloc_linux.c	(.../tags/varnish-2.0.5/varnish-cache)
++++ lib/libjemalloc/jemalloc_linux.c	(.../branches/2.0/varnish-cache)
+@@ -243,7 +243,7 @@
+ #  define SIZEOF_PTR_2POW	3
+ #  define NO_TLS
+ #endif
+-#ifdef __sparc64__
++#ifdef __sparc__
+ #  define PAGESIZE_2POW		13
+ #  define QUANTUM_2POW		4
+ #  define SIZEOF_PTR_2POW	3
+@@ -272,6 +272,11 @@
+ #  define QUANTUM_2POW		4
+ #  define SIZEOF_PTR_2POW	2
+ #endif
++#ifdef __s390x__
++#  define PAGESIZE_2POW		12
++#  define QUANTUM_2POW		4
++#  define SIZEOF_PTR_2POW	3
++#endif
  
- 	memset(b, 0, sizeof b);
- 	p = ae->t_addr->dec;
- 	for (i = 0; i < 4; i++) {
--		j = sscanf(p, "%hhu%n", &b[i], &k);
-+		j = sscanf(p, "%u%n", &u, &k);
- 		if (j != 1)
- 			return (0);
-+		if (u & ~0xff)
-+			return (0);
-+		b[i] = (unsigned char)u;
- 		if (p[k] == '\0')
- 			break;
- 		if (p[k] != '.')
-Index: bin/varnishreplay/varnishreplay.c
+ #define	QUANTUM			((size_t)(1U << QUANTUM_2POW))
+ #define	QUANTUM_MASK		(QUANTUM - 1)
+Index: redhat/varnish.spec
 ===================================================================
---- bin/varnishreplay/varnishreplay.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishreplay/varnishreplay.c	(.../branches/2.0/varnish-cache)
-@@ -190,7 +190,7 @@
- 	pthread_mutex_unlock(&log_mutex);
- }
+--- redhat/varnish.spec	(.../tags/varnish-2.0.5/varnish-cache)
++++ redhat/varnish.spec	(.../branches/2.0/varnish-cache)
+@@ -1,12 +1,14 @@
+ Summary: High-performance HTTP accelerator
+ Name: varnish
+-Version: 2.0.4
++Version: 2.0.6
+ Release: 1%{?dist}
+ License: BSD
+ Group: System Environment/Daemons
+ URL: http://www.varnish-cache.org/
+ Source0: http://downloads.sourceforge.net/varnish/varnish-%{version}.tar.gz
+ #Patch0: varnish.varnishtest_debugflag.patch
++#Patch1: varnish.s390x_pagesize.patch
++#Patch2: varnish.sparc_pagesize.patch
+ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+ # The svn sources needs autoconf, automake and libtool to generate a suitable
+ # configure script. Release tarballs would not need this
+@@ -64,12 +66,13 @@
+ %setup -q
+ #%setup -q -n varnish-cache
  
--struct thread {
-+struct replay_thread {
- 	pthread_t thread_id;
- 	struct mailbox mbox;
- 
-@@ -212,14 +212,14 @@
- 	char temp[2048];
- };
- 
--static struct thread **threads;
-+static struct replay_thread **threads;
- static size_t nthreads;
- 
- /*
-  * Clear thread state
-  */
- static void
--thread_clear(struct thread *thr)
-+thread_clear(struct replay_thread *thr)
- {
- 
- 	thr->method = thr->proto = thr->url = NULL;
-@@ -236,17 +236,17 @@
- 	thr->sock = -1;
- }
- 
--#define THREAD_FAIL ((struct thread *)-1)
-+#define THREAD_FAIL ((struct replay_thread *)-1)
- 
- static pthread_attr_t thread_attr;
- 
--static struct thread *
-+static struct replay_thread *
- thread_get(int fd, void *(*thread_main)(void *))
- {
- 
- 	assert(fd != 0);
- 	if (fd >= nthreads) {
--		struct thread **newthreads = threads;
-+		struct replay_thread **newthreads = threads;
- 		size_t newnthreads = nthreads;
- 
- 		while (fd >= newnthreads)
-@@ -309,7 +309,7 @@
-  * Allocate from thread arena
-  */
- static void *
--thread_alloc(struct thread *thr, size_t len)
-+thread_alloc(struct replay_thread *thr, size_t len)
- {
- 	void *ptr;
- 
-@@ -325,7 +325,7 @@
-  * trimmed.
-  */
- static char *
--trimline(struct thread *thr, const char *str)
-+trimline(struct replay_thread *thr, const char *str)
- {
- 	size_t len;
- 	char *p;
-@@ -355,7 +355,7 @@
-  * A line is terminated by \r\n
-  */
- static int
--read_line(struct thread *thr)
-+read_line(struct replay_thread *thr)
- {
- 	int i, len;
- 
-@@ -389,7 +389,7 @@
-  * the number of bytes read.
-  */
- static int
--read_block(struct thread *thr, int len)
-+read_block(struct replay_thread *thr, int len)
- {
- 	int n, r, tot;
- 
-@@ -412,7 +412,7 @@
- /* Receive the response after sending a request.
-  */
- static int
--receive_response(struct thread *thr)
-+receive_response(struct replay_thread *thr)
- {
- 	const char *next;
- 	int line_len;
-@@ -496,7 +496,7 @@
- {
- 	struct iovec iov[6];
- 	char space[1] = " ", crlf[2] = "\r\n";
--	struct thread *thr = arg;
-+	struct replay_thread *thr = arg;
- 	struct message *msg;
- 	enum shmlogtag tag;
- 	size_t len;
-@@ -642,7 +642,7 @@
- gen_traffic(void *priv, enum shmlogtag tag, unsigned fd,
-     unsigned len, unsigned spec, const char *ptr)
- {
--	struct thread *thr;
-+	struct replay_thread *thr;
- 	const char *end;
- 	struct message *msg;
- 
-Index: bin/varnishtest/tests/r00354.vtc
-===================================================================
---- bin/varnishtest/tests/r00354.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/r00354.vtc	(.../branches/2.0/varnish-cache)
-@@ -1,16 +0,0 @@
--# $Id$
 -
--test "#354 Segfault in strcmp in http_DissectRequest()"
--
--server s1 {
--	rxreq
--	txresp
--}
--
--varnish v1 -vcl+backend {} -start
--
--client c1 {
--	send "FOO\r\n\r\n"
--	rxresp
--	expect resp.status == 400
--} -run
-Index: bin/varnishtest/tests/r00494.vtc
+ # The svn sources needs to generate a suitable configure script
+ # Release tarballs would not need this
+ #./autogen.sh
+ 
+ #%patch0 -p0
++#%patch1 -p0
++#%patch2 -p0
+ 
+ # Hack to get 32- and 64-bits tests run concurrently on the same build machine
+ case `uname -m` in
+@@ -92,7 +95,7 @@
+ %build
+ 
+ # Remove "--disable static" if you want to build static libraries 
+-# jemalloc is not compatible with Red Hat's ppc64 RHEL5 kernel koji server :-(
++# jemalloc is not compatible with Red Hat's ppc* RHEL5 kernel koji server :-(
+ %ifarch ppc64 ppc
+ %configure --disable-static --localstatedir=/var/lib --disable-jemalloc
+ %else
+@@ -236,6 +239,21 @@
+ %postun libs -p /sbin/ldconfig
+ 
+ %changelog
++* Mon Dec 14 2009 Ingvar Hagelund <ingvar@linpro.no> - 2.0.6-1
++- New upstream release
++
++* Mon Nov 09 2009 Ingvar Hagelund <ingvar@linpro.no> - 2.0.5-1
++- New upstream release
++
++* Thu Aug 13 2009 Ingvar Hagelund <ingvar@linpro.no> - 2.0.4-4
++- Added a sparc specific patch to libjemalloc.
++
++* Sun Jul 26 2009 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.0.4-3
++- Rebuilt for https://fedoraproject.org/wiki/Fedora_12_Mass_Rebuild
++
++* Thu May 04 2009 Ingvar Hagelund <ingvar@linpro.no> - 2.0.4-2
++- Added a s390 specific patch to libjemalloc.
++
+ * Fri Mar 27 2009 Ingvar Hagelund <ingvar@linpro.no> - 2.0.4-1
+   New upstream release 2.0.4 
+ 
+Index: bin/varnishtest/tests/v00005.vtc
 ===================================================================
---- bin/varnishtest/tests/r00494.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/r00494.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,27 @@
-+# $Id$
-+
-+test "HTTP continuation lines"
-+
-+#NB: careful about spaces and tabs in this test.
-+
-+server s1 {
-+	rxreq
-+	txresp -hdr {Foo: bar,
-+	barf: fail} -body "xxx"
-+} -start
-+
-+varnish v1 -vcl+backend {
-+	sub vcl_fetch {
-+		set obj.http.bar = obj.http.foo;
-+		remove obj.http.foo;
-+	}
-+} -start
-+
-+client c1 {
-+	txreq
-+	rxresp
-+	expect resp.http.bar == "bar,  barf: fail"
-+	expect resp.http.barf == resp.http.barf
-+	expect resp.http.foo == resp.http.foo
-+} -run
-+
-Index: bin/varnishtest/tests/r00498.vtc
-===================================================================
---- bin/varnishtest/tests/r00498.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/r00498.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,18 @@
-+# $Id$
-+
-+test "very very very long return header"
-+
-+server s1 {
-+	rxreq
-+	expect req.url == "/"
-+	txresp -hdr "Location: 111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111" -body {foo}
-+} -start
-+
-+varnish v1 -vcl+backend {
-+} -start
-+
-+client c1 {
-+	txreq 
-+	rxresp
-+	expect resp.bodylen == 3
-+} -run
-Index: bin/varnishtest/tests/b00029.vtc
-===================================================================
---- bin/varnishtest/tests/b00029.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/b00029.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,18 @@
-+# $Id$
-+
-+test "Test orderly connection closure"
-+
-+
-+server s1 {
-+	rxreq
-+	txresp -bodylen 130000
-+} -start
-+
-+varnish v1 -vcl+backend { } -start
-+
-+client c1 {
-+	txreq -hdr "Connection: close"
-+	delay 3
-+	rxresp
-+	expect resp.bodylen == 130000
-+} -run
-Index: bin/varnishtest/tests/r00502.vtc
-===================================================================
---- bin/varnishtest/tests/r00502.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/r00502.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,30 @@
-+# $Id$
-+
-+test "multi element purge"
-+
-+server s1 {
-+	rxreq
-+	txresp -hdr "foo: bar1" -body "1"
-+	rxreq
-+	txresp -hdr "foo: bar2" -body "22"
-+} -start
-+
-+varnish v1 -vcl+backend {
-+	sub vcl_recv {
-+		purge("req.url == / && obj.http.foo ~ bar1");
-+	}
-+} -start
-+
-+client c1 {
-+	txreq
-+	rxresp
-+	expect resp.http.foo == "bar1"
-+	txreq
-+	rxresp
-+	expect resp.http.foo == "bar2"
-+	txreq
-+	rxresp
-+	expect resp.http.foo == "bar2"
-+} -run
-+
-+varnish v1 -cliok purge.list
-Index: bin/varnishtest/tests/v00024.vtc
-===================================================================
---- bin/varnishtest/tests/v00024.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/v00024.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,27 @@
-+# $Id$
-+
-+test "Test that headers can be compared"
-+
-+server s1 {
-+	rxreq
-+	expect req.url == "/foo"
-+	txresp -status 200 -body "1"
-+} -start
-+
-+varnish v1 -vcl+backend { 
-+	sub vcl_recv {
-+		if (req.http.etag == req.http.if-none-match) {
-+			error 400 "FOO";
+--- bin/varnishtest/tests/v00005.vtc	(.../tags/varnish-2.0.5/varnish-cache)
++++ bin/varnishtest/tests/v00005.vtc	(.../branches/2.0/varnish-cache)
+@@ -2,6 +2,16 @@
+ 
+ test "VCL: test backend probe syntax"
+ 
++# Check status definition
++varnish v1 -vcl {
++	backend b1 {
++		.host = "127.0.0.1";
++		.probe = {
++			.expected_response = 204;
 +		}
 +	}
-+} -start
++}
 +
-+client c1 {
-+	txreq -url "/foo"
-+	rxresp
-+	expect resp.status == 200
-+	expect resp.bodylen == 1
-+	txreq -url "/foo" -hdr "etag: foo" -hdr "if-none-match: foo"
-+	rxresp
-+	expect resp.status == 400
-+} -run
-Index: bin/varnishtest/tests/r00506.vtc
+ # Check url definition
+ varnish v1 -vcl {
+ 	backend b1 {
+Index: bin/varnishtest/tests/c00031.vtc
 ===================================================================
---- bin/varnishtest/tests/r00506.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/r00506.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,18 @@
-+# $Id$
-+
-+test "Illegal HTTP status from backend"
-+
-+server s1 {
-+	rxreq
-+	send "HTTP/1.1 1000\n\nFoo"
-+} -start
-+
-+varnish v1 -vcl+backend {
-+	sub vcl_recv {
-+	}
-+} -start
-+
-+client c1 {
-+	txreq
-+	rxresp
-+} -run
-Index: bin/varnishtest/tests/r00549.vtc
-===================================================================
---- bin/varnishtest/tests/r00549.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/r00549.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,15 @@
-+# $Id$
-+
-+# Regression test for bad backend reply with ctrl char.
-+
-+server s1 {
-+	rxreq
-+	send "HTTP/1.1 200 OK\013\r\n\r\nTest"
-+} -start
-+
-+varnish v1 -vcl+backend {} -start
-+
-+client c1 {
-+	txreq
-+	rxresp
-+} -run
-Index: bin/varnishtest/tests/c00025.vtc
-===================================================================
---- bin/varnishtest/tests/c00025.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/c00025.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,33 @@
-+# $Id$
-+
-+test "Test If-None-Match"
-+
-+server s1 {
-+	rxreq
-+	expect req.url == "/foo"
-+	txresp -hdr "ETag: 123456789" \
-+	    -body "11111\n"
-+} -start
-+
-+varnish v1 -vcl+backend { } -start
-+
-+client c1 {
-+	txreq -url "/foo"
-+	rxresp
-+	expect resp.status == 200
-+	expect resp.http.content-length == 6
-+
-+	txreq -url "/foo" \
-+	    -hdr "If-None-Match: 12345678"
-+	rxresp
-+	expect resp.status == 200
-+
-+	txreq -url "/foo" \
-+	    -hdr "If-None-Match: 123456789"
-+	rxresp
-+	expect resp.status == 304
-+} 
-+
-+client c1 -run
-+
-+client c1 -run
-Index: bin/varnishtest/tests/r00558.vtc
-===================================================================
---- bin/varnishtest/tests/r00558.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/r00558.vtc	(.../branches/2.0/varnish-cache)
+--- bin/varnishtest/tests/c00031.vtc	(.../tags/varnish-2.0.5/varnish-cache)
++++ bin/varnishtest/tests/c00031.vtc	(.../branches/2.0/varnish-cache)
 @@ -0,0 +1,19 @@
++# Test that we get anything through at all
++#
 +# $Id$
 +
-+test "error from vcl_recv{} has no numeric code"
-+
-+
-+server s1 {
-+}
-+
-+varnish v1 -vcl+backend {
-+	sub vcl_recv {
-+		return (error);
-+	}
-+} -start
-+
-+client c1 {
-+	txreq
-+	rxresp
-+	expect resp.status == 501
-+} -run
-Index: bin/varnishtest/tests/e00016.vtc
-===================================================================
---- bin/varnishtest/tests/e00016.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/e00016.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,49 @@
-+# $Id$
-+
-+test "ESI request can't be turned off midstream"
++test "Worker thread stack size setting"
 +
 +server s1 {
 +	rxreq 
-+	txresp -body {
-+		<html>
-+		Before include
-+		<esi:include src="/body"/>
-+		<esi:include src="/body3"/>
-+		After include
-+	}
-+	rxreq 
-+	expect req.url == "/body"
-+	txresp -body {
-+	       <esi:include src="/body2"/>
-+	}
-+	rxreq
-+	expect req.url == "/body2"
-+	txresp -body {
-+	       included
-+	}
-+	rxreq
-+	expect req.url == "/body3"
-+	txresp -body {
-+	       included body3
-+	}
-+} -start
-+
-+varnish v1 -vcl+backend {
-+	sub vcl_fetch {
-+ 	    	set req.esi = true;	
-+	    	if(req.url == "/body") {
-+		   set req.esi = false;
-+		} 
-+		esi;
-+	}
-+} -start
-+
-+client c1 {
-+        txreq
-+	rxresp
-+	expect resp.bodylen == 105
-+	expect resp.status == 200
-+}
-+
-+client c1 -run
-+varnish v1 -expect esi_errors == 0
-Index: bin/varnishtest/tests/r00561.vtc
-===================================================================
---- bin/varnishtest/tests/r00561.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/r00561.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,25 @@
-+# $Id$
-+
-+test "Junk request should not go to vcl_error"
-+
-+server s1 {
-+	rxreq
 +	txresp
 +} -start
 +
-+varnish v1 -vcl+backend {
-+	sub vcl_error {
-+		return (restart);
-+	}
-+} -start
++varnish v1 -arg "-p thread_pool_stack=131072" -vcl+backend {} -start
 +
 +client c1 {
-+	send "sljdslf\r\n\r\n"
-+	delay .1
-+} -run
-+
-+client c1 {
-+	txreq 
++	txreq -url "/"
 +	rxresp
++	expect resp.status == 200
 +} -run
 +
-Index: bin/varnishtest/tests/c00008.vtc
+Index: bin/varnishtest/tests/e00017.vtc
 ===================================================================
---- bin/varnishtest/tests/c00008.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/c00008.vtc	(.../branches/2.0/varnish-cache)
-@@ -6,6 +6,7 @@
- 	rxreq
- 	expect req.url == "/foo"
- 	txresp -hdr "Last-Modified: Thu, 26 Jun 2008 12:00:01 GMT" \
-+	    -hdr "ETag: foo" \
- 	    -body "11111\n"
- } -start
- 
-@@ -15,22 +16,26 @@
- 	txreq -url "/foo"
- 	rxresp
- 	expect resp.status == 200
-+	expect resp.http.etag == "foo"
- 	expect resp.http.content-length == 6
- 
- 	txreq -url "/foo" \
- 	    -hdr "If-Modified-Since: Thu, 26 Jun 2008 12:00:00 GMT"
- 	rxresp
- 	expect resp.status == 200
-+	expect resp.http.etag == "foo"
- 
- 	txreq -url "/foo" \
- 	    -hdr "If-Modified-Since: Thu, 26 Jun 2008 12:00:01 GMT"
- 	rxresp
- 	expect resp.status == 304
-+	expect resp.http.etag == "foo"
- 
- 	txreq -url "/foo" \
- 	    -hdr "If-Modified-Since: Thu, 26 Jun 2008 12:00:02 GMT"
- 	rxresp
- 	expect resp.status == 304
-+	expect resp.http.etag == "foo"
- } 
- 
- client c1 -run
-Index: bin/varnishtest/tests/s00002.vtc
-===================================================================
---- bin/varnishtest/tests/s00002.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/s00002.vtc	(.../branches/2.0/varnish-cache)
-@@ -18,6 +18,7 @@
- 			.interval = 1s; 
- 			.window = 2; 
- 			.threshold = 1; 
-+			.initial = 0;
- 			} 
- 		}
- 	sub vcl_fetch { 
-Index: bin/varnishtest/tests/v00014.vtc
-===================================================================
---- bin/varnishtest/tests/v00014.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/v00014.vtc	(.../branches/2.0/varnish-cache)
-@@ -20,6 +20,7 @@
- 			.interval = 1s;
- 			.window = 3;
- 			.threshold = 2;
-+			.initial = 0;
- 		}
- 	}
- 
-Index: bin/varnishtest/tests/r00306.vtc
-===================================================================
---- bin/varnishtest/tests/r00306.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/r00306.vtc	(.../branches/2.0/varnish-cache)
-@@ -27,6 +27,7 @@
- 		.host = "127.0.0.1"; .port = "9180";
- 		.probe = {
- 			.url = "/";
-+			.initial = 0;
- 		}
- 	}
- 	director foo random {
-Index: bin/varnishtest/tests/c00026.vtc
-===================================================================
---- bin/varnishtest/tests/c00026.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/c00026.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,53 @@
+--- bin/varnishtest/tests/e00017.vtc	(.../tags/varnish-2.0.5/varnish-cache)
++++ bin/varnishtest/tests/e00017.vtc	(.../branches/2.0/varnish-cache)
+@@ -0,0 +1,88 @@
 +# $Id$
 +
-+test "Test Combination of If-None-Match and If-Modified-Since"
++test "Aggressive use of ESI include"
++
 +
 +server s1 {
++	rxreq 
++	txresp -body {
++		<html>
++		Before include
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/00"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/01"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/02"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/03"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/04"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/05"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/06"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/07"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/08"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/09"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/10"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/11"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/12"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/13"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/14"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/15"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/16"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/17"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/18"/>
++		<esi:include src="/some/very/long/url/with/dozen/of/information/for/esi/subquery/to/munch/and/also/to/try/to/make/object/workspace/explode/by/dumping/a/core/in/some/obscure/directory/on/my/file/system/19"/>
++		After include
++	}
++	rxreq 
++	txresp -body { Included file 00 }
++	rxreq 
++	txresp -body { Included file 01 }
++	rxreq 
++	txresp -body { Included file 02 }
++	rxreq 
++	txresp -body { Included file 03 }
++	rxreq 
++	txresp -body { Included file 04 }
++	rxreq 
++	txresp -body { Included file 05 }
++	rxreq 
++	txresp -body { Included file 06 }
 +	rxreq
-+	expect req.url == "/foo"
-+	txresp -hdr "ETag: 123456789" \
-+	       -hdr "Last-Modified: Thu, 26 Jun 2008 12:00:01 GMT" \
-+	    -body "11111\n"
-+} -start
-+
-+varnish v1 -vcl+backend { } -start
-+
-+client c1 {
-+	txreq -url "/foo"
-+	rxresp
-+	expect resp.status == 200
-+	expect resp.http.content-length == 6
-+
-+	txreq -url "/foo" \
-+	    -hdr "If-None-Match: 123456789"
-+	rxresp
-+	expect resp.status == 304
-+
-+	txreq -url "/foo" \
-+	    -hdr "If-Modified-Since: Thu, 26 Jun 2008 12:00:01 GMT"
-+	rxresp
-+	expect resp.status == 304
-+
-+	txreq -url "/foo" \
-+	    -hdr "If-Modified-Since: Thu, 26 Jun 2008 12:00:00 GMT" \
-+	    -hdr "If-None-Match: 123456789"
-+	rxresp
-+	expect resp.status == 200
-+
-+	txreq -url "/foo" \
-+	    -hdr "If-Modified-Since: Thu, 26 Jun 2008 12:00:01 GMT" \
-+	    -hdr "If-None-Match: 12345678"
-+	rxresp
-+	expect resp.status == 200
-+
-+	txreq -url "/foo" \
-+	    -hdr "If-Modified-Since: Thu, 26 Jun 2008 12:00:01 GMT" \
-+	    -hdr "If-None-Match: 123456789"
-+	rxresp
-+	expect resp.status == 304
-+
-+} 
-+
-+client c1 -run
-+
-+client c1 -run
-Index: bin/varnishtest/tests/c00028.vtc
-===================================================================
---- bin/varnishtest/tests/c00028.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/c00028.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,24 @@
-+# $Id$
-+
-+test "Test that we can't recurse restarts forever"
-+
-+varnish v1 -vcl { 
-+	backend bad { 
-+		.host = "127.0.0.1";
-+		.port = "9090";
-+	}
-+
-+	sub vcl_recv {
-+	    set req.backend = bad;
-+	}
-+	sub vcl_error { 
-+	    restart; 
-+	}
-+ } -start 
-+
-+client c1 {
-+        txreq -url "/"
-+        rxresp
-+        expect resp.status == 503
-+} -run
-+
-Index: bin/varnishtest/tests/e00013.vtc
-===================================================================
---- bin/varnishtest/tests/e00013.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/e00013.vtc	(.../branches/2.0/varnish-cache)
-@@ -6,7 +6,7 @@
-         rxreq
-         expect req.url == "/foo"
-         txresp -hdr "Connection: close"
--        send {                                         }
-+        send {<x>                                      }
- } -start
- 
- varnish v1 -vcl+backend {
-Index: bin/varnishtest/tests/e00015.vtc
-===================================================================
---- bin/varnishtest/tests/e00015.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/e00015.vtc	(.../branches/2.0/varnish-cache)
-@@ -0,0 +1,48 @@
-+# $Id$
-+
-+test "ESI requests turned off"
-+
-+server s1 {
++	txresp -body { Included file 07 }
 +	rxreq 
-+	txresp -body {
-+		<html>
-+		Before include
-+		<esi:include src="/body"/>
-+		After include
-+	}
++	txresp -body { Included file 08 }
 +	rxreq 
-+	txresp -body {
-+		<html>
-+		Before include
-+		<esi:include src="/body"/>
-+		After include
-+	}
++	txresp -body { Included file 09 }
 +	rxreq 
-+	expect req.url == "/body"
-+	txresp -body {
-+		Included file
-+	}
++	txresp -body { Included file 10 }
++	rxreq 
++	txresp -body { Included file 11 }
++	rxreq 
++	txresp -body { Included file 12 }
++	rxreq 
++	txresp -body { Included file 13 }
++	rxreq 
++	txresp -body { Included file 14 }
++	rxreq 
++	txresp -body { Included file 15 }
++	rxreq 
++	txresp -body { Included file 16 }
++	rxreq
++	txresp -body { Included file 17 }
++	rxreq 
++	txresp -body { Included file 18 }
++	rxreq 
++	txresp -body { Included file 19 }
 +} -start
 +
 +varnish v1 -vcl+backend {
 +	sub vcl_fetch {
-+	    	if(req.url == "/") {
-+ 	    	   set req.esi = false;
-+		}
 +		esi;
 +	}
 +} -start
 +
 +client c1 {
-+        txreq
++	txreq 
 +	rxresp
-+	expect resp.bodylen == 73
-+	expect resp.status == 200
-+	txreq -url "/esi"
-+	rxresp
-+	expect resp.bodylen == 65
 +	expect resp.status == 200
 +}
 +
 +client c1 -run
 +varnish v1 -expect esi_errors == 0
-
-Property changes on: bin/varnishtest/tests/e00015.vtc
-___________________________________________________________________
-Added: svn:keywords
-   + Id
-
-Index: bin/varnishtest/tests/c00001.vtc
+Index: bin/varnishtest/tests/v00002.vtc
 ===================================================================
---- bin/varnishtest/tests/c00001.vtc	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/tests/c00001.vtc	(.../branches/2.0/varnish-cache)
-@@ -36,7 +36,7 @@
- 	expect resp.http.snafu2 == "_frap_"
- 	expect resp.http.snafu3 == "_f\\rap_"
- 	expect resp.http.snafu4 == "_f&rap_"
--	expect resp.http.snafu5 == "_barffra\p_"
--	# NB: have to escape the \\ in the next line
-+	# NB: have to escape the \\ in the next two lines
-+	expect resp.http.snafu5 == "_barffra\\p_"
- 	expect resp.http.snafu6 == "_f&rap\\_"
- } -run
-Index: bin/varnishtest/vtc_varnish.c
-===================================================================
---- bin/varnishtest/vtc_varnish.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/vtc_varnish.c	(.../branches/2.0/varnish-cache)
-@@ -326,9 +326,14 @@
- 	vtc_log(v->vl, 2, "R %d Status: %04x", r, status);
- 	if (WIFEXITED(status) && WEXITSTATUS(status) == 2)
- 		return;
-+#ifdef WCOREDUMP
- 	vtc_log(v->vl, 0, "Bad exit code: %04x sig %x exit %x core %x",
- 	    status, WTERMSIG(status), WEXITSTATUS(status),
- 	    WCOREDUMP(status));
-+#else
-+	vtc_log(v->vl, 0, "Bad exit code: %04x sig %x exit %x",
-+	    status, WTERMSIG(status), WEXITSTATUS(status));
-+#endif
+--- bin/varnishtest/tests/v00002.vtc	(.../tags/varnish-2.0.5/varnish-cache)
++++ bin/varnishtest/tests/v00002.vtc	(.../branches/2.0/varnish-cache)
+@@ -185,3 +185,11 @@
+ 	}
  }
  
- /**********************************************************************
-Index: bin/varnishtest/vtc_http.c
-===================================================================
---- bin/varnishtest/vtc_http.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtest/vtc_http.c	(.../branches/2.0/varnish-cache)
-@@ -322,11 +322,13 @@
- 		pfd[0].revents = 0;
- 		i = poll(pfd, 1, hp->timeout);
- 		assert(i > 0);
--		assert(hp->prxbuf < hp->nrxbuf);
-+		assert(hp->prxbuf + n < hp->nrxbuf);
- 		i = read(hp->fd, hp->rxbuf + hp->prxbuf, n);
- 		if (i == 0)
- 			return (i);
--		assert(i > 0);
-+		if (i <= 0)
-+			vtc_log(hp->vl, 0, "HTTP rx failed (%s)",
-+			    strerror(errno));
- 		hp->prxbuf += i;
- 		hp->rxbuf[hp->prxbuf] = '\0';
- 		n -= i;
-@@ -781,7 +783,7 @@
- 	hp->vl = vl;
- 	hp->client = client;
- 	hp->timeout = 3000;
--	hp->nrxbuf = 8192;
-+	hp->nrxbuf = 640*1024;
- 	hp->vsb = vsb_newauto();
- 	hp->rxbuf = malloc(hp->nrxbuf);		/* XXX */
- 	AN(hp->rxbuf);
++
++varnish v1 -badvcl {
++	backend b1 {
++		.host = "127.0.0.1";
++		.probe = { .expected_response = 13; }
++	}
++}
++
 Index: bin/varnishtest/vtc.c
 ===================================================================
---- bin/varnishtest/vtc.c	(.../tags/varnish-2.0.4/varnish-cache)
+--- bin/varnishtest/vtc.c	(.../tags/varnish-2.0.5/varnish-cache)
 +++ bin/varnishtest/vtc.c	(.../branches/2.0/varnish-cache)
-@@ -130,19 +130,9 @@
- 				for (; *p != '\0'; p++) {
- 					if (*p == '"')
- 						break;
--
--					if (*p == '\\' && p[1] == 'n') {
--						*q++ = '\n';
--						p++;
--					} else if (*p == '\\' && p[1] == 'r') {
--						*q++ = '\r';
--						p++;
--					} else if (*p == '\\' && p[1] == '\\') {
--						*q++ = '\\';
--						p++;
--					} else if (*p == '\\' && p[1] == '"') {
--						*q++ = '"';
--						p++;
-+					if (*p == '\\') {
-+						p += BackSlash(p, q) - 1;
-+						q++;
- 					} else {
- 						if (*p == '\n')
- 							fprintf(stderr,
-Index: bin/varnishtop/varnishtop.c
-===================================================================
---- bin/varnishtop/varnishtop.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishtop/varnishtop.c	(.../branches/2.0/varnish-cache)
-@@ -54,7 +54,8 @@
- #include "varnishapi.h"
+@@ -294,7 +294,7 @@
+ static void
+ cmd_random(CMD_ARGS)
+ {
+-	unsigned long l;
++	uint32_t l;
+ 	int i;
  
- struct top {
--	unsigned char		rec[4 + 255];
-+	unsigned char		rec[4];
-+	unsigned char		*rec_data;
- 	unsigned		clen;
- 	unsigned		hash;
- 	VTAILQ_ENTRY(top)	list;
-@@ -99,7 +100,7 @@
- 			continue;
- 		if (tp->clen != q - p)
- 			continue;
--		if (memcmp(p + SHMLOG_DATA, tp->rec + SHMLOG_DATA,
-+		if (memcmp(p + SHMLOG_DATA, tp->rec_data,
- 		    q - (p + SHMLOG_DATA)))
- 			continue;
- 		tp->count += 1.0;
-@@ -109,12 +110,15 @@
- 		ntop++;
- 		tp = calloc(sizeof *tp, 1);
- 		assert(tp != NULL);
-+		tp->rec_data = calloc(l, 1);
-+		assert(tp->rec_data != NULL);
- 		tp->hash = u;
- 		tp->count = 1.0;
- 		tp->clen = q - p;
- 		VTAILQ_INSERT_TAIL(&top_head, tp, list);
- 	}
--	memcpy(tp->rec, p, SHMLOG_DATA + l);
-+	memcpy(tp->rec, p, SHMLOG_DATA - 1);
-+	memcpy(tp->rec_data, p + SHMLOG_DATA, l);
- 	while (1) {
- 		tp2 = VTAILQ_PREV(tp, tophead, list);
- 		if (tp2 == NULL || tp2->count >= tp->count)
-@@ -157,12 +161,13 @@
- 			mvprintw(l, 0, "%9.2f %-*.*s %*.*s\n",
- 			    tp->count, maxfieldlen, maxfieldlen,
- 			    VSL_tags[tp->rec[SHMLOG_TAG]],
--			    len, len, tp->rec + SHMLOG_DATA);
-+			    len, len, tp->rec_data);
- 			t = tp->count;
+ 	(void)cmd;
+Index: bin/varnishd/cache_vrt_esi.c
+===================================================================
+--- bin/varnishd/cache_vrt_esi.c	(.../tags/varnish-2.0.5/varnish-cache)
++++ bin/varnishd/cache_vrt_esi.c	(.../branches/2.0/varnish-cache)
+@@ -384,7 +384,7 @@
+ 			memcpy(c, val.b, Tlen(val));
+ 			val.b = c;
+ 			val.e = val.b + s;
+-			*val.e = '\0';
++			val.e[-1] = '\0';
  		}
- 		tp->count *= .999;
- 		if (tp->count * 10 < t || l > LINES * 10) {
- 			VTAILQ_REMOVE(&top_head, tp, list);
-+			free(tp->rec_data);
- 			free(tp);
- 			ntop--;
- 		}
-@@ -267,8 +272,8 @@
- 	VTAILQ_FOREACH_SAFE(tp, &top_head, list, tp2) {
- 		if (tp->count <= 1.0)
- 			break;
--		len = tp->rec[1];
--		printf("%9.2f %*.*s\n", tp->count, len, len, tp->rec + 4);
-+		len = SHMLOG_LEN(tp->rec);
-+		printf("%9.2f %s %*.*s\n", tp->count, VSL_tags[tp->rec[SHMLOG_TAG]], len, len, tp->rec + SHMLOG_DATA);
- 	}
- }
  
-Index: bin/varnishd/cache_acceptor_kqueue.c
+ 		if (Tlen(val) > 7 && !memcmp(val.b, "http://", 7)) {
+Index: bin/varnishd/cache_panic.c
 ===================================================================
---- bin/varnishd/cache_acceptor_kqueue.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_acceptor_kqueue.c	(.../branches/2.0/varnish-cache)
-@@ -197,6 +197,7 @@
- 			if (sp->t_open > deadline)
- 				break;
- 			VTAILQ_REMOVE(&sesshead, sp, list);
-+			TCP_linger(sp->fd, 0);
- 			vca_close_session(sp, "timeout");
- 			SES_Delete(sp);
- 		}
-Index: bin/varnishd/storage_file.c
-===================================================================
---- bin/varnishd/storage_file.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/storage_file.c	(.../branches/2.0/varnish-cache)
-@@ -577,6 +577,7 @@
- 		p = mmap(NULL, sz, PROT_READ|PROT_WRITE,
- 		    MAP_NOCORE | MAP_NOSYNC | MAP_SHARED, sc->fd, off);
- 		if (p != MAP_FAILED) {
-+			(void) madvise(p, sz, MADV_RANDOM);
- 			(*sum) += sz;
- 			new_smf(sc, p, off, sz);
- 			return;
-Index: bin/varnishd/steps.h
-===================================================================
---- bin/varnishd/steps.h	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/steps.h	(.../branches/2.0/varnish-cache)
-@@ -29,7 +29,7 @@
-  * $Id$
-  */
+--- bin/varnishd/cache_panic.c	(.../tags/varnish-2.0.5/varnish-cache)
++++ bin/varnishd/cache_panic.c	(.../branches/2.0/varnish-cache)
+@@ -264,6 +264,8 @@
+ 	size_t i;
  
--STEP(again,	AGAIN)
-+STEP(wait,	WAIT)
- STEP(first,	FIRST)
- STEP(recv,	RECV)
- STEP(start,	START)
-Index: bin/varnishd/mgt_param.c
+ 	size = backtrace (array, 10);
++	if (size == 0)
++		return;
+ 	vsb_printf(vsp, "Backtrace:\n");
+ 	for (i = 0; i < size; i++) {
+ 		vsb_printf (vsp, "  ");
+Index: bin/varnishd/mgt_pool.c
 ===================================================================
---- bin/varnishd/mgt_param.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/mgt_param.c	(.../branches/2.0/varnish-cache)
-@@ -585,7 +585,7 @@
- 		"Lifetime of srcaddr entries.\n"
- 		"Zero will disable srcaddr accounting entirely.",
+--- bin/varnishd/mgt_pool.c	(.../tags/varnish-2.0.5/varnish-cache)
++++ bin/varnishd/mgt_pool.c	(.../branches/2.0/varnish-cache)
+@@ -179,6 +179,13 @@
+ 		"number of worker threads.  ",
  		EXPERIMENTAL,
--		"30", "seconds" },
-+		"0", "seconds" },
- 	{ "backend_http11", tweak_bool, &master.backend_http11, 0, 0,
- 		"Force all backend requests to be HTTP/1.1.\n"
- 		"By default we copy the protocol version from the "
-@@ -692,6 +692,15 @@
- 		"have both IPv4 and IPv6 addresses.",
- 		0,
- 		"off", "bool" },
-+	{ "session_max", tweak_uint,
-+		&master.max_sess, 1000, UINT_MAX,
-+		"Maximum number of sessions we will allocate "
-+		"before just dropping connections.\n"
-+		"This is mostly an anti-DoS measure, and setting it plenty "
-+		"high should not hurt, as long as you have the memory for "
-+		"it.\n",
-+		0,
-+		"100000", "sessions" },
- 	{ "session_linger", tweak_uint,
- 		&master.session_linger,0, UINT_MAX,
- 		"How long time the workerthread lingers on the session "
-@@ -703,7 +712,7 @@
- 		"anything for their keep, setting it too low just means that "
- 		"more sessions take a detour around the acceptor.",
- 		EXPERIMENTAL,
--		"0", "ms" },
-+		"50", "ms" },
- 	{ "cli_buffer", tweak_uint, &master.cli_buffer, 4096, UINT_MAX,
- 		"Size of buffer for CLI input."
- 		"\nYou may need to increase this if you have big VCL files "
-@@ -756,7 +765,7 @@
- 	{ "purge_dups", tweak_bool, &master.purge_dups, 0, 0,
- 		"Detect and eliminate duplicate purges.\n",
- 		0,
--		"off", "bool" },
-+		"on", "bool" },
+ 		"3", "requests per request" },
++	{ "thread_pool_stack",
++		tweak_uint, &master.wthread_stacksize, 64*1024, UINT_MAX,
++		"Worker thread stack size.  In particular on 32bit systems "
++		"you may need to tweak this down to fit many threads into "
++		"the limited address space.\n",
++		EXPERIMENTAL,
++		"-1", "bytes" },
  	{ NULL, NULL, NULL }
  };
  
-Index: bin/varnishd/cache_vcl.c
-===================================================================
---- bin/varnishd/cache_vcl.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_vcl.c	(.../branches/2.0/varnish-cache)
-@@ -83,7 +83,13 @@
- void
- VCL_Get(struct VCL_conf **vcc)
- {
-+	static int once;
- 
-+	while (!once && vcl_active == NULL) {
-+		sleep(1);
-+	}
-+	once = 1;
-+
- 	Lck_Lock(&vcl_mtx);
- 	AN(vcl_active);
- 	*vcc = vcl_active->conf;
-Index: bin/varnishd/cache_ws.c
-===================================================================
---- bin/varnishd/cache_ws.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_ws.c	(.../branches/2.0/varnish-cache)
-@@ -82,6 +82,10 @@
- 	WS_Assert(ws);
- }
- 
-+/*
-+ * Reset a WS to start or a given pointer, likely from WS_Snapshot
-+ */
-+
- void
- WS_Reset(struct ws *ws, char *p)
- {
-Index: bin/varnishd/cache_httpconn.c
-===================================================================
---- bin/varnishd/cache_httpconn.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_httpconn.c	(.../branches/2.0/varnish-cache)
-@@ -92,6 +92,7 @@
- 	(void)WS_Reserve(htc->ws, (htc->ws->e - htc->ws->s) / 2);
- 	htc->rxbuf.b = ws->f;
- 	htc->rxbuf.e = ws->f;
-+	*htc->rxbuf.e = '\0';
- 	htc->pipeline.b = NULL;
- 	htc->pipeline.e = NULL;
- }
-Index: bin/varnishd/cache_response.c
-===================================================================
---- bin/varnishd/cache_response.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_response.c	(.../branches/2.0/varnish-cache)
-@@ -46,6 +46,7 @@
- res_do_304(struct sess *sp)
- {
- 	char lm[64];
-+	char *p;
- 
- 	WSP(sp, SLT_Length, "%u", 0);
- 
-@@ -56,8 +57,23 @@
- 	http_PrintfHeader(sp->wrk, sp->fd, sp->http, "Date: %s", lm);
- 	http_SetHeader(sp->wrk, sp->fd, sp->http, "Via: 1.1 varnish");
- 	http_PrintfHeader(sp->wrk, sp->fd, sp->http, "X-Varnish: %u", sp->xid);
--	TIM_format(sp->obj->last_modified, lm);
--	http_PrintfHeader(sp->wrk, sp->fd, sp->http, "Last-Modified: %s", lm);
-+	if (sp->obj->last_modified) {
-+		TIM_format(sp->obj->last_modified, lm);
-+		http_PrintfHeader(sp->wrk, sp->fd, sp->http, "Last-Modified: %s", lm);
-+	}
-+
-+	/* http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.3.5 */
-+	if (http_GetHdr(sp->obj->http, H_Cache_Control, &p))
-+		http_PrintfHeader(sp->wrk, sp->fd, sp->http, "Cache-Control: %s", p);
-+	if (http_GetHdr(sp->obj->http, H_Content_Location, &p))
-+		http_PrintfHeader(sp->wrk, sp->fd, sp->http, "Content-Location: %s", p);
-+	if (http_GetHdr(sp->obj->http, H_ETag, &p))
-+		http_PrintfHeader(sp->wrk, sp->fd, sp->http, "ETag: %s", p);
-+	if (http_GetHdr(sp->obj->http, H_Expires, &p))
-+		http_PrintfHeader(sp->wrk, sp->fd, sp->http, "Expires: %s", p);
-+	if (http_GetHdr(sp->obj->http, H_Vary, &p))
-+		http_PrintfHeader(sp->wrk, sp->fd, sp->http, "Vary: %s", p);
-+
- 	http_PrintfHeader(sp->wrk, sp->fd, sp->http, "Connection: %s",
- 	    sp->doclose ? "close" : "keep-alive");
- 	sp->wantbody = 0;
-@@ -68,17 +84,33 @@
- static int
- res_do_conds(struct sess *sp)
- {
--	char *p;
-+	char *p, *e;
- 	double ims;
-+	int do_cond = 0;
- 
--	if (sp->obj->last_modified > 0 &&
--	    http_GetHdr(sp->http, H_If_Modified_Since, &p)) {
-+	/* RFC 2616 13.3.4 states we need to match both ETag
-+	   and If-Modified-Since if present*/
-+
-+	if (http_GetHdr(sp->http, H_If_Modified_Since, &p) ) {
-+		if (!sp->obj->last_modified)
-+			return (0);
- 		ims = TIM_parse(p);
- 		if (ims > sp->t_req)	/* [RFC2616 14.25] */
- 			return (0);
- 		if (sp->obj->last_modified > ims) {
- 			return (0);
- 		}
-+		do_cond = 1;
-+	}
-+
-+	if (http_GetHdr(sp->http, H_If_None_Match, &p) &&
-+	    http_GetHdr(sp->obj->http, H_ETag, &e)) {
-+		if (strcmp(p,e) != 0)
-+			return (0);
-+		do_cond = 1;
-+	}
-+
-+	if (do_cond == 1) { 
- 		res_do_304(sp);
- 		return (1);
- 	}
-@@ -106,9 +138,12 @@
- 	    HTTPH_A_DELIVER);
- 
- 	/* Only HTTP 1.1 can do Chunked encoding */
--	if (sp->http->protover < 1.1 && !VTAILQ_EMPTY(&sp->obj->esibits))
--		http_Unset(sp->http, H_Transfer_Encoding);
--
-+ 	if (!sp->disable_esi && !VTAILQ_EMPTY(&sp->obj->esibits)) {
-+ 		http_Unset(sp->http, H_Content_Length);
-+ 		if(sp->http->protover >= 1.1)
-+ 			http_PrintfHeader(sp->wrk, sp->fd, sp->http, "Transfer-Encoding: chunked");
-+ 	}
-+ 
- 	TIM_format(TIM_real(), time_str);
- 	http_PrintfHeader(sp->wrk, sp->fd, sp->http, "Date: %s", time_str);
- 
-@@ -139,10 +174,10 @@
- 
- 	WRW_Reserve(sp->wrk, &sp->fd);
- 
--	if (sp->esis == 0)
-+	if (sp->disable_esi || sp->esis == 0)
- 		sp->acct_req.hdrbytes += http_Write(sp->wrk, sp->http, 1);
- 
--	if (sp->wantbody && !VTAILQ_EMPTY(&sp->obj->esibits)) {
-+	if (!sp->disable_esi && sp->wantbody && !VTAILQ_EMPTY(&sp->obj->esibits)) {
- 		if (WRW_FlushRelease(sp->wrk)) {
- 			vca_close_session(sp, "remote closed");
- 			return;
-@@ -152,7 +187,8 @@
- 	}
- 
- 	if (sp->wantbody) {
--		if (sp->esis > 0 &&
-+		if (!sp->disable_esi &&
-+		    sp->esis > 0 &&
- 		    sp->http->protover >= 1.1 &&
- 		    sp->obj->len > 0) {
- 			sprintf(lenbuf, "%x\r\n", sp->obj->len);
-@@ -183,7 +219,8 @@
- 			(void)WRW_Write(sp->wrk, st->ptr, st->len);
- 		}
- 		assert(u == sp->obj->len);
--		if (sp->esis > 0 &&
-+		if (!sp->disable_esi &&
-+		    sp->esis > 0 &&
- 		    sp->http->protover >= 1.1 &&
- 		    sp->obj->len > 0)
- 			(void)WRW_Write(sp->wrk, "\r\n", -1);
-Index: bin/varnishd/cache_cli.c
-===================================================================
---- bin/varnishd/cache_cli.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_cli.c	(.../branches/2.0/varnish-cache)
-@@ -158,8 +158,7 @@
- 			continue;
- 		assert(i == 1);
- 		if (pfd[0].revents & POLLHUP) {
--			fprintf(stderr,
--			    "EOF on CLI connection, exiting\n");
-+			VSL(SLT_CLI, 0, "EOF on CLI connection, worker stops");
- 			exit(0);
- 		}
- 		i = VLU_Fd(heritage.cli_in, vlu);
-Index: bin/varnishd/varnishd.1
-===================================================================
---- bin/varnishd/varnishd.1	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/varnishd.1	(.../branches/2.0/varnish-cache)
-@@ -326,8 +326,12 @@
- address and port.
- The following commands are available:
- .Bl -tag -width 4n
--.It Cm help
-+.It Cm help Op Ar command
- Display a list of available commands.
-+.Pp
-+If the
-+.Ar command
-+is specified, display help for this command.
- .It Cm param.set Ar param Ar value
- Set the parameter specified by
- .Ar param
-@@ -336,35 +340,78 @@
- See
- .Sx Run-Time Parameters
- for a list of parameters.
--.It Cm param.show Ar param
--Display the value of the parameter specified by
--.Ar param .
--See
--.Sx Run-Time Parameters
--for a list of parameters.
--.It Cm param.show Op Fl l
--Display a list of run-time parameters and their values.
-+.It Xo
-+.Cm param.show
-+.Op Fl l
-+.Op Ar param
-+.Xc
-+Display a list if run-time parameters and their values. 
-+.Pp
- If the
- .Fl l
- option is specified, the list includes a brief explanation of each
- parameter.
-+.Pp
-+If a
-+.Ar param
-+is specified, display only the value and explanation for this
-+parameter.
- .It Cm ping Op Ns Ar timestamp
--Ping the child process.
-+Ping the Varnish cache process, keeping the connection alive.
-+.It Cm purge Ar field Ar operator Ar argument Op && Ar field Ar operator Ar argument Op ...
-+Immediately invalidate all documents matching the purge expression.
-+See
-+.Va Purge expressions
-+for more documentation and examples.
-+.It Cm purge.hash Ar regex
-+Immediately invalidate all documents where
-+.Va obj.hash
-+matches the
-+.Va regex .
-+The default object hash contains the values from
-+.Va req.url
-+and either
-+.Va req.http.host
-+or
-+.Va server.ip
-+depending on the presence of a Host: header in the request sent by the
-+client.
-+The object hash may be modified further by
-+.Va VCL.
-+.It Cm purge.list
-+Display the purge list.
-+.Pp
-+All requests for objects from the cache are matched against items on
-+the purge list.
-+If an object in the cache is older than a matching purge list item, it
-+is considered
-+.Qq purged ,
-+and will be fetched from the backend instead.
-+.Pp
-+When a purge expression is older than all the objects in the cache, it
-+is removed from the list.
-+.It Cm purge.url Ar regexp
-+Immediately invalidate all documents whose URL matches the specified
-+regular expression.
-+.It Cm quit
-+Close the connection to the varnish admin port.
- .It Cm start
--Start the child process if it is not already running.
-+Start the Varnish cache process if it is not already running.
- .It Cm stats
--Display server statistics.
-+Show summary statistics.
-+.Pp
- All the numbers presented are totals since server startup; for a
- better idea of the current situation, use the
- .Xr varnishstat 1
- utility.
- .It Cm status
--Check the status of the child process.
-+Check the status of the Varnish cache process.
- .It Cm stop
--Stop the child process.
-+Stop the Varnish cache process.
- .It Cm url.purge Ar regexp
--Immediately invalidate all documents whos URL matches the specified
--regular expression.
-+Deprecated, see
-+.Cm purge.url
-+instead.
- .It Cm vcl.discard Ar configname
- Discard the configuration specified by
- .Ar configname .
-@@ -583,6 +630,65 @@
- The default is
- .Dv off .
- .El
-+.Ss Purge expressions
-+A purge expression consists of one or more conditions.
-+A condition consists of a field, an operator, and an argument.
-+Conditions can be ANDed together with
-+.Qq && .
-+.Pp
-+A field can be any of the variables from VCL, for instance
-+.Va req.url ,
-+.Va req.http.host
-+or
-+.Va obj.set-cookie .
-+.Pp
-+Operators are
-+.Qq ==
-+for direct comparision,
-+.Qq ~
-+for a regular expression match, and
-+.Qq >
-+or
-+.Qq <
-+for size comparisons.
-+Prepending an operator with
-+.Qq \&!
-+negates the expression.
-+.Pp
-+The argument could be a quoted string, a regexp, or an integer.
-+Integers can have 
-+.Qq KB ,
-+.Qq MB ,
-+.Qq GB
-+or
-+.Qq TB
-+appended for size related fields.
-+.Pp
-+Simple example: All requests where
-+.Va req.url
-+exactly matches the string
-+.Va /news
-+are purged from the cache.
-+.Bd -literal -offset 4n
-+req.url == "/news"
-+.Ed
-+.Pp
-+Example: Purge all documents where the name does not end with
-+.Qq .ogg ,
-+and where the size of the object is greater than 10 megabytes.
-+.Bd -literal -offset 4n
-+req.url !~ "\\.ogg$" && obj.size > 10MB
-+.Ed
-+.Pp
-+Example: Purge all documents where the serving host is
-+.Qq example.com
-+or
-+.Qq www.example.com ,
-+and where the Set-Cookie header received from the backend contains
-+.Qq USERID=1663 .
-+.Bd -literal -offset 4n
-+req.http.host ~ "^(www\\.)example.com$" && obj.set-cookie ~ "USERID=1663"
-+.Ed
- .Sh SEE ALSO
- .Xr varnishlog 1 ,
- .Xr varnishhist 1 ,
-@@ -609,4 +715,6 @@
- .An Poul-Henning Kamp Aq phk@phk.freebsd.dk
- in cooperation with Verdens Gang AS and Linpro AS.
- This manual page was written by
--.An Dag-Erling Sm\(/orgrav Aq des@des.no .
-+.An Dag-Erling Sm\(/orgrav Aq des@des.no
-+with updates by
-+.An Stig Sandbeck Mathisen Aq ssm@debian.org
-Index: bin/varnishd/cache_vrt_esi.c
-===================================================================
---- bin/varnishd/cache_vrt_esi.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_vrt_esi.c	(.../branches/2.0/varnish-cache)
-@@ -304,8 +304,7 @@
- 	in->b++;
- 
- 	if (isspace(*in->b)) {
--		val->e = val->b = in->b;;
--		*val->e = '\0';
-+		val->e = val->b = in->b;
- 		in->b++;
- 		return (1);
- 	}
-@@ -340,7 +339,6 @@
- 		val->e = in->b;
- 		in->b++;
- 	}
--	*val->e = '\0';
- 	return (1);
- }
- 
-@@ -352,11 +350,11 @@
- esi_handle_include(struct esi_work *ew)
- {
- 	struct esi_bit *eb;
--	char *p, *q;
-+	char *p, *q, *c;
- 	txt t = ew->tag;
- 	txt tag;
- 	txt val;
--	unsigned u, v;
-+	unsigned u, v, s;
- 	struct ws *ws;
- 
- 	if (ew->eb == NULL || ew->eb->include.b != NULL)
-@@ -371,10 +369,24 @@
- 			continue;
- 		if (Tlen(val) == 0) {
- 			esi_error(ew, tag.b, Tlen(tag),
--			    "ESI esi:include src attribute withou value");
-+			    "ESI esi:include src attribute without value");
- 			continue;
- 		}
- 
-+		/* Wee are saving the original string */
-+		ws = ew->sp->obj->ws_o;
-+		WS_Assert(ws);
-+		s = 0;
-+
-+		if ( val.b != val.e ) {
-+			s = Tlen(val) + 1;
-+			c = WS_Alloc(ws, s);
-+			memcpy(c, val.b, Tlen(val));
-+			val.b = c;
-+			val.e = val.b + s;
-+			*val.e = '\0';
-+		}
-+
- 		if (Tlen(val) > 7 && !memcmp(val.b, "http://", 7)) {
- 			/*  Rewrite to Host: header inplace */
- 			eb->host.b = val.b;
-@@ -406,8 +418,6 @@
- 
- 			/* Use the objects WS to store the result */
- 			CHECK_OBJ_NOTNULL(ew->sp->obj, OBJECT_MAGIC);
--			ws = ew->sp->obj->ws_o;
--			WS_Assert(ws);
- 
- 			/* Look for the last '/' before a '?' */
- 			q = NULL;
-@@ -747,13 +757,6 @@
- 	if (ew->incmt)
- 		esi_error(ew, ew->t.e, -1,
- 		    "ESI 1.0 unterminated <!--esi comment");
--
--	/*
--	 * Our ESI implementation needs chunked encoding
--	 */
--	http_Unset(sp->obj->http, H_Content_Length);
--	http_PrintfHeader(sp->wrk, sp->fd, sp->obj->http,
--	    "Transfer-Encoding: chunked");
- }
- 
- /*--------------------------------------------------------------------*/
-@@ -763,8 +766,11 @@
- {
- 	struct esi_bit *eb;
- 	struct object *obj;
-+	char *ws_wm;
-+	struct http http_save;
- 
- 	WRW_Reserve(sp->wrk, &sp->fd);
-+	http_save.magic = 0;
- 	VTAILQ_FOREACH(eb, &sp->obj->esibits, list) {
- 		if (Tlen(eb->verbatim)) {
- 			if (sp->http->protover >= 1.1)
-@@ -786,8 +792,17 @@
- 		sp->esis++;
- 		obj = sp->obj;
- 		sp->obj = NULL;
-+
-+		/* Save the master objects HTTP state, we may need it later */
-+		if (http_save.magic == 0)
-+			http_save = *sp->http;
-+
-+		/* Reset request to status before we started messing with it */
- 		*sp->http = *sp->http0;
--		/* XXX: reset sp->ws */
-+
-+		/* Take a workspace snapshot */
-+		ws_wm = WS_Snapshot(sp->ws);
-+
- 		http_SetH(sp->http, HTTP_HDR_URL, eb->include.b);
- 		if (eb->host.b != NULL)  {
- 			http_Unset(sp->http, H_Host);
-@@ -822,10 +837,17 @@
- 		assert(sp->step == STP_DONE);
- 		sp->esis--;
- 		sp->obj = obj;
-+
-+		/* Reset the workspace */
-+		WS_Reset(sp->ws, ws_wm);
-+
- 		WRW_Reserve(sp->wrk, &sp->fd);
- 		if (sp->fd < 0)
- 			break;
- 	}
-+       /* Restore master objects HTTP state */
-+       if (http_save.magic)
-+	       *sp->http = http_save;
- 	if (sp->esis == 0 && sp->http->protover >= 1.1)
- 		(void)WRW_Write(sp->wrk, "0\r\n\r\n", -1);
- 	if (WRW_FlushRelease(sp->wrk))
-Index: bin/varnishd/cache_backend.c
-===================================================================
---- bin/varnishd/cache_backend.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_backend.c	(.../branches/2.0/varnish-cache)
-@@ -314,11 +314,11 @@
- 		if (VBE_CheckFd(vc->fd)) {
- 			/* XXX locking of stats */
- 			VSL_stats->backend_reuse += 1;
--			VSL_stats->backend_conn++;
- 			WSP(sp, SLT_Backend, "%d %s %s",
- 			    vc->fd, sp->director->vcl_name, bp->vcl_name);
- 			return (vc);
- 		}
-+		VSL_stats->backend_toolate++;
- 		sp->vbe = vc;
- 		VBE_ClosedFd(sp);
- 	}
-Index: bin/varnishd/hash_slinger.h
-===================================================================
---- bin/varnishd/hash_slinger.h	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/hash_slinger.h	(.../branches/2.0/varnish-cache)
-@@ -49,7 +49,7 @@
- };
- 
- /* cache_hash.c */
--void HSH_Prealloc(struct sess *sp);
-+void HSH_Prealloc(struct sess *sp, int transient);
- void HSH_Freestore(struct object *o);
- void HSH_Copy(const struct sess *sp, struct objhead *o);
- struct object *HSH_Lookup(struct sess *sp);
-Index: bin/varnishd/cache_fetch.c
-===================================================================
---- bin/varnishd/cache_fetch.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_fetch.c	(.../branches/2.0/varnish-cache)
-@@ -70,8 +70,11 @@
- 
- 	while (cl > 0) {
- 		i = HTC_Read(htc, p, cl);
--		if (i <= 0)
-+		if (i <= 0) {
-+			WSP(sp, SLT_FetchError,
-+			    "straight read_error: %d", errno);
- 			return (-1);
-+		}
- 		p += i;
- 		cl -= i;
- 	}
-@@ -110,8 +113,11 @@
- 
- 		/* If we didn't succeed, add to buffer, try again */
- 		if (q == NULL || q == buf || *q != '\n') {
--			if (bp >= be)
-+			if (bp >= be) {
-+				WSP(sp, SLT_FetchError,
-+				    "chunked hex-line too long");
- 				return (-1);
-+			}
- 			/*
- 			 * The semantics we need here is "read until you have
- 			 * received at least one character, but feel free to
-@@ -128,8 +134,11 @@
- 			 * at a time.
- 			 */
- 			i = HTC_Read(htc, bp, 1);
--			if (i <= 0)
-+			if (i <= 0) {
-+				WSP(sp, SLT_FetchError,
-+				    "chunked read_error: %d", errno);
- 				return (-1);
-+			}
- 			bp += i;
- 			continue;
- 		}
-@@ -241,8 +250,11 @@
- 		AN(p);
- 		AN(st);
- 		i = HTC_Read(htc, p, v);
--		if (i < 0)
-+		if (i < 0) {
-+			WSP(sp, SLT_FetchError,
-+			    "eof read_error: %d", errno);
- 			return (-1);
-+		}
- 		if (i == 0)
- 			break;
- 		p += i;
-@@ -338,8 +350,10 @@
- 	/* Set up obj's workspace */
- 	WS_Assert(sp->obj->ws_o);
- 	VBE_GetFd(sp);
--	if (sp->vbe == NULL)
-+	if (sp->vbe == NULL) {
-+		WSP(sp, SLT_FetchError, "no backend connection");
- 		return (__LINE__);
-+	}
- 	vc = sp->vbe;
- 	/* Inherit the backend timeouts from the selected backend */
- 	SES_InheritBackendTimeouts(sp);
-@@ -359,6 +373,7 @@
- 	/* Deal with any message-body the request might have */
- 	i = FetchReqBody(sp);
- 	if (WRW_FlushRelease(w) || i > 0) {
-+		WSP(sp, SLT_FetchError, "backend write error: %d", errno);
- 		VBE_ClosedFd(sp);
- 		/* XXX: other cleanup ? */
- 		return (__LINE__);
-@@ -374,17 +389,19 @@
- 	TCP_set_read_timeout(vc->fd, sp->first_byte_timeout);
- 	do {
- 		i = HTC_Rx(htc);
-+		if (i < 0) {
-+			WSP(sp, SLT_FetchError,
-+			    "http read error: %d", errno);
-+			VBE_ClosedFd(sp);
-+			/* XXX: other cleanup ? */
-+			return (__LINE__);
-+		}
- 		TCP_set_read_timeout(vc->fd, sp->between_bytes_timeout);
- 	}
- 	while (i == 0);
- 
--	if (i < 0) {
--		VBE_ClosedFd(sp);
--		/* XXX: other cleanup ? */
--		return (__LINE__);
--	}
--
- 	if (http_DissectResponse(sp->wrk, htc, hp)) {
-+		WSP(sp, SLT_FetchError, "http format error");
- 		VBE_ClosedFd(sp);
- 		/* XXX: other cleanup ? */
- 		return (__LINE__);
-@@ -407,14 +424,17 @@
- 	cls = 0;
- 	mklen = 0;
- 	if (is_head) {
--		/* nothing */
-+		VSL_stats->fetch_head++;
- 	} else if (http_GetHdr(hp, H_Content_Length, &b)) {
-+		VSL_stats->fetch_length++;
- 		cls = fetch_straight(sp, htc, b);
- 		mklen = 1;
- 	} else if (http_HdrIs(hp, H_Transfer_Encoding, "chunked")) {
-+		VSL_stats->fetch_chunked++;
- 		cls = fetch_chunked(sp, htc);
- 		mklen = 1;
- 	} else if (http_GetHdr(hp, H_Transfer_Encoding, &b)) {
-+		VSL_stats->fetch_bad++;
- 		/* XXX: AUGH! */
- 		WSL(sp->wrk, SLT_Debug, vc->fd, "Invalid Transfer-Encoding");
- 		VBE_ClosedFd(sp);
-@@ -427,6 +447,7 @@
- 		 */
- 		mklen = 1;
- 	} else if (http_HdrIs(hp, H_Connection, "close")) {
-+		VSL_stats->fetch_close++;
- 		/*
- 		 * If we have connection closed, it is safe to read what
- 		 * comes in any case.
-@@ -434,19 +455,23 @@
- 		cls = fetch_eof(sp, htc);
- 		mklen = 1;
- 	} else if (hp->protover < 1.1) {
-+		VSL_stats->fetch_oldhttp++;
- 		/*
- 		 * With no Connection header, assume EOF
- 		 */
- 		cls = fetch_eof(sp, htc);
- 		mklen = 1;
- 	} else {
-+		VSL_stats->fetch_zero++;
- 		/*
- 		 * Assume zero length
-+		 * XXX:  ??? 
- 		 */
- 		mklen = 1;
- 	}
- 
- 	if (cls < 0) {
-+		VSL_stats->fetch_failed++;
- 		/* XXX: Wouldn't this store automatically be released ? */
- 		while (!VTAILQ_EMPTY(&sp->obj->store)) {
- 			st = VTAILQ_FIRST(&sp->obj->store);
-@@ -511,5 +536,3 @@
- 
- 	CLI_AddFuncs(DEBUG_CLI, debug_cmds);
- }
--
--
-Index: bin/varnishd/cache_panic.c
-===================================================================
---- bin/varnishd/cache_panic.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_panic.c	(.../branches/2.0/varnish-cache)
-@@ -37,6 +37,11 @@
- #include <stdlib.h>
- #include <unistd.h>
- 
-+#ifndef HAVE_EXECINFO_H
-+#include "compat/execinfo.h"
-+#else
-+#include <execinfo.h>
-+#endif
- #include "cache.h"
- #include "cache_backend.h"
- #include "vcl.h"
-@@ -63,7 +68,7 @@
- 	vsb_printf(vsp, "%*sws = %p { %s\n", indent, "",
- 	    ws, ws->overflow ? "overflow" : "");
- 	vsb_printf(vsp, "%*sid = \"%s\",\n", indent + 2, "", ws->id);
--	vsb_printf(vsp, "%*s{s,f,r,e} = {%p,", indent + 2, "", ws->s);
-+	vsb_printf(vsp, "%*s{s,f,r,e} = {%p", indent + 2, "", ws->s);
- 	if (ws->f > ws->s)
- 		vsb_printf(vsp, ",+%d", ws->f - ws->s);
- 	else
-@@ -131,21 +136,21 @@
- /*--------------------------------------------------------------------*/
- 
- static void
--pan_http(const struct http *h)
-+pan_http(const char *id, const struct http *h, int indent)
- {
- 	int i;
- 
--	vsb_printf(vsp, "    http = {\n");
--	pan_ws(h->ws, 6);
--	if (h->nhd > HTTP_HDR_FIRST) {
--		vsb_printf(vsp, "      hd = {\n");
--		for (i = HTTP_HDR_FIRST; i < h->nhd; ++i)
--			vsb_printf(vsp, "        \"%.*s\",\n",
--			    (int)(h->hd[i].e - h->hd[i].b),
--			    h->hd[i].b);
--		vsb_printf(vsp, "      },\n");
-+	vsb_printf(vsp, "%*shttp[%s] = {\n", indent, "", id);
-+	vsb_printf(vsp, "%*sws = %p[%s]\n", indent + 2, "",
-+	    h->ws, h->ws ? h->ws->id : "");
-+	for (i = 0; i < h->nhd; ++i) {
-+		if (h->hd[i].b == NULL && h->hd[i].e == NULL)
-+			continue;
-+		vsb_printf(vsp, "%*s\"%.*s\",\n", indent + 4, "",
-+		    (int)(h->hd[i].e - h->hd[i].b),
-+		    h->hd[i].b);
- 	}
--	vsb_printf(vsp, "    },\n");
-+	vsb_printf(vsp, "%*s},\n", indent, "");
- }
- 
- 
-@@ -159,7 +164,7 @@
- 	vsb_printf(vsp, "  obj = %p {\n", o);
- 	vsb_printf(vsp, "    refcnt = %u, xid = %u,\n", o->refcnt, o->xid);
- 	pan_ws(o->ws_o, 4);
--	pan_http(o->http);
-+	pan_http("obj", o->http, 4);
- 	vsb_printf(vsp, "    len = %u,\n", o->len);
- 	vsb_printf(vsp, "    store = {\n");
- 	VTAILQ_FOREACH(st, &o->store, list)
-@@ -190,8 +195,7 @@
- pan_wrk(const struct worker *wrk)
- {
- 
--	vsb_printf(vsp, "    worker = %p {\n", wrk);
--	vsb_printf(vsp, "    },\n");
-+	vsb_printf(vsp, "  worker = %p\n", wrk);
- }
- 
- /*--------------------------------------------------------------------*/
-@@ -229,7 +233,11 @@
- 		    "  err_code = %d, err_reason = %s,\n", sp->err_code,
- 		    sp->err_reason ? sp->err_reason : "(null)");
- 
-+	vsb_printf(vsp, "  restarts = %d, esis = %d\n",
-+	    sp->restarts, sp->esis);
-+
- 	pan_ws(sp->ws, 2);
-+	pan_http("req", sp->http, 2);
- 
- 	if (sp->wrk != NULL)
- 		pan_wrk(sp->wrk);
-@@ -249,6 +257,28 @@
- /*--------------------------------------------------------------------*/
- 
- static void
-+pan_backtrace(void)
-+{
-+	void *array[10];
-+	size_t size;
-+	size_t i;
-+
-+	size = backtrace (array, 10);
-+	vsb_printf(vsp, "Backtrace:\n");
-+	for (i = 0; i < size; i++) {
-+		vsb_printf (vsp, "  ");
-+		if (Symbol_Lookup(vsp, array[i]) < 0) {
-+			char **strings;
-+			strings = backtrace_symbols(&array[i], 1);
-+			vsb_printf(vsp, "%p: %s", array[i], strings[0]);
-+		}
-+		vsb_printf (vsp, "\n");
-+	}
-+}
-+
-+/*--------------------------------------------------------------------*/
-+
-+static void
- pan_ic(const char *func, const char *file, int line, const char *cond,
-     int err, int xxx)
- {
-@@ -264,7 +294,7 @@
- 		break;
- 	case 2:
- 		vsb_printf(vsp,
--		    "Panic from VCL:\n%s\n", cond);
-+		    "Panic from VCL:\n  %s\n", cond);
- 		break;
- 	case 1:
- 		vsb_printf(vsp,
-@@ -276,16 +306,19 @@
- 	case 0:
- 		vsb_printf(vsp,
- 		    "Assert error in %s(), %s line %d:\n"
--		    "  Condition(%s) not true.",
-+		    "  Condition(%s) not true.\n",
- 		    func, file, line, cond);
- 		break;
- 	}
- 	if (err)
--		vsb_printf(vsp, "  errno = %d (%s)", err, strerror(err));
-+		vsb_printf(vsp, "errno = %d (%s)\n", err, strerror(err));
- 
- 	q = THR_GetName();
- 	if (q != NULL)
--		vsb_printf(vsp, "  thread = (%s)", q);
-+		vsb_printf(vsp, "thread = (%s)\n", q);
-+
-+	pan_backtrace();
-+
- 	if (!(params->diag_bitmap & 0x2000)) {
- 		sp = THR_GetSession();
- 		if (sp != NULL)
-Index: bin/varnishd/cache_expire.c
-===================================================================
---- bin/varnishd/cache_expire.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_expire.c	(.../branches/2.0/varnish-cache)
-@@ -275,26 +275,13 @@
-  */
- 
- static void *
--exp_timer(void *arg)
-+exp_timer(struct sess *sp, void *priv)
- {
--	struct worker ww;
- 	struct objexp *oe;
- 	struct object *o;
- 	double t;
--	struct sess *sp;
--	unsigned char logbuf[1024];		/* XXX size ? */
- 
--	THR_SetName("cache-timeout");
--	(void)arg;
--
--	sp = SES_New(NULL, 0);
--	XXXAN(sp);
--	sp->wrk = &ww;
--	ww.magic = WORKER_MAGIC;
--	ww.wlp = ww.wlb = logbuf;
--	ww.wle = logbuf + sizeof logbuf;
--
--	AZ(sleep(10));		/* XXX: Takes time for VCL to arrive */
-+	(void)priv;
- 	VCL_Get(&sp->vcl);
- 	t = TIM_real();
- 	while (1) {
-@@ -303,7 +290,7 @@
- 		CHECK_OBJ_ORNULL(oe, OBJEXP_MAGIC);
- 		if (oe == NULL || oe->timer_when > t) { /* XXX: > or >= ? */
- 			Lck_Unlock(&exp_mtx);
--			WSL_Flush(&ww, 0);
-+			WSL_Flush(sp->wrk, 0);
- 			AZ(sleep(1));
- 			VCL_Refresh(&sp->vcl);
- 			t = TIM_real();
-@@ -327,7 +314,7 @@
- 		assert(oe->on_lru);
- 		Lck_Unlock(&exp_mtx);
- 
--		WSL(&ww, SLT_ExpPick, 0, "%u %s", o->xid, oe->timer_what);
-+		WSL(sp->wrk, SLT_ExpPick, 0, "%u %s", o->xid, oe->timer_what);
- 
- 		if (oe->timer_what == tmr_prefetch) {
- 			o->prefetch = 0.0;
-@@ -335,7 +322,7 @@
- 			VCL_prefetch_method(sp);
- 			sp->obj = NULL;
- 			if (sp->handling == VCL_RET_FETCH) {
--				WSL(&ww, SLT_Debug, 0, "Attempt Prefetch %u",
-+				WSL(sp->wrk, SLT_Debug, 0, "Attempt Prefetch %u",
- 				    o->xid);
- 			}
- 			Lck_Lock(&exp_mtx);
-@@ -351,7 +338,7 @@
- 			sp->obj = NULL;
- 
- 			assert(sp->handling == VCL_RET_DISCARD);
--			WSL(&ww, SLT_ExpKill, 0,
-+			WSL(sp->wrk, SLT_ExpKill, 0,
- 			    "%u %d", o->xid, (int)(o->ttl - t));
- 			Lck_Lock(&exp_mtx);
- 			assert(oe->timer_idx == BINHEAP_NOIDX);
-@@ -481,5 +468,5 @@
- 	Lck_New(&exp_mtx);
- 	exp_heap = binheap_new(NULL, object_cmp, object_update);
- 	XXXAN(exp_heap);
--	AZ(pthread_create(&exp_thread, NULL, exp_timer, NULL));
-+	WRK_BgThread(&exp_thread, "cache-timeout", exp_timer, NULL);
- }
-Index: bin/varnishd/cache_ban.c
-===================================================================
---- bin/varnishd/cache_ban.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_ban.c	(.../branches/2.0/varnish-cache)
-@@ -86,6 +86,7 @@
- 	int			flags;
- #define BAN_F_GONE		(1 << 0)
- 	VTAILQ_HEAD(,ban_test)	tests;
-+	VTAILQ_HEAD(,object)	obj;
- };
- 
- static VTAILQ_HEAD(banhead,ban) ban_head = VTAILQ_HEAD_INITIALIZER(ban_head);
-@@ -103,6 +104,7 @@
- 	if (b == NULL)
- 		return (b);
- 	VTAILQ_INIT(&b->tests);
-+	VTAILQ_INIT(&b->obj);
- 	return (b);
- }
- 
-@@ -146,6 +148,9 @@
- 	struct ban_test *bt;
- 
- 	CHECK_OBJ_NOTNULL(b, BAN_MAGIC);
-+	AZ(b->refcount);
-+	assert(VTAILQ_EMPTY(&b->obj));
-+
- 	while (!VTAILQ_EMPTY(&b->tests)) {
- 		bt = VTAILQ_FIRST(&b->tests);
- 		VTAILQ_REMOVE(&b->tests, bt, list);
-@@ -366,7 +371,7 @@
- 	sb = vsb_newauto();
- 	XXXAN(sb);
- 	vsb_printf(sb, "%s %s ", a1, a2);
--	vsb_quote(sb, a3, 0);
-+	vsb_quote(sb, a3, -1, 0);
- 	vsb_finish(sb);
- 	AZ(vsb_overflowed(sb));
- 	bt->test = strdup(vsb_data(sb));
-@@ -439,6 +444,7 @@
- 	Lck_Lock(&ban_mtx);
- 	o->ban = ban_start;
- 	ban_start->refcount++;
-+	VTAILQ_INSERT_TAIL(&ban_start->obj, o, ban_list);
- 	Lck_Unlock(&ban_mtx);
- }
- 
-@@ -470,6 +476,7 @@
- 	CHECK_OBJ_NOTNULL(o->ban, BAN_MAGIC);
- 	Lck_Lock(&ban_mtx);
- 	o->ban->refcount--;
-+	VTAILQ_REMOVE(&o->ban->obj, o, ban_list);
- 	o->ban = NULL;
- 
- 	/* Attempt to purge last ban entry */
-@@ -518,8 +525,11 @@
- 
- 	Lck_Lock(&ban_mtx);
- 	o->ban->refcount--;
--	if (b == o->ban)	/* not banned */
-+	VTAILQ_REMOVE(&o->ban->obj, o, ban_list);
-+	if (b == o->ban) {	/* not banned */
-+		VTAILQ_INSERT_TAIL(&b0->obj, o, ban_list);
- 		b0->refcount++;
-+	}
- 	VSL_stats->n_purge_obj_test++;
- 	VSL_stats->n_purge_re_test += tests;
- 	Lck_Unlock(&ban_mtx);
-@@ -529,6 +539,7 @@
- 		return (0);
- 	} else {
- 		o->ttl = 0;
-+		o->cacheable = 0;
- 		WSP(sp, SLT_ExpBan, "%u was banned", o->xid);
- 		EXP_Rearm(o);
- 		o->ban = NULL;
-Index: bin/varnishd/default.vcl
-===================================================================
---- bin/varnishd/default.vcl	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/default.vcl	(.../branches/2.0/varnish-cache)
-@@ -141,8 +141,9 @@
-     <p>"} obj.response {"</p>
-     <h3>Guru Meditation:</h3>
-     <p>XID: "} req.xid {"</p>
-+    <hr>
-     <address>
--       <a href="http://www.varnish-cache.org/">Varnish</a>
-+       <a href="http://www.varnish-cache.org/">Varnish cache server</a>
-     </address>
-   </body>
- </html>
-Index: bin/varnishd/cache_lck.c
-===================================================================
---- bin/varnishd/cache_lck.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_lck.c	(.../branches/2.0/varnish-cache)
-@@ -78,7 +78,7 @@
- 		return;
- 	}
- 	r = pthread_mutex_trylock(&ilck->mtx);
--	assert(r == 0 || errno == EBUSY);
-+	assert(r == 0 || r == EBUSY);
- 	if (r) {
- 		VSL(SLT_Debug, 0, "MTX_CONTEST(%s,%s,%d,%s)", p, f, l, ilck->w);
- 		AZ(pthread_mutex_lock(&ilck->mtx));
-@@ -111,8 +111,8 @@
- 	int r;
- 
- 	CAST_OBJ_NOTNULL(ilck, lck->priv, ILCK_MAGIC);
--	r = pthread_mutex_lock(&ilck->mtx);
--	assert(r == 0 || errno == EBUSY);
-+	r = pthread_mutex_trylock(&ilck->mtx);
-+	assert(r == 0 || r == EBUSY);
- 	if (params->diag_bitmap & 0x8)
- 		VSL(SLT_Debug, 0,
- 		    "MTX_TRYLOCK(%s,%s,%d,%s) = %d", p, f, l, ilck->w);
-Index: bin/varnishd/cache_vrt.c
-===================================================================
---- bin/varnishd/cache_vrt.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_vrt.c	(.../branches/2.0/varnish-cache)
-@@ -130,7 +130,9 @@
- 	return (p);
- }
- 
--/*--------------------------------------------------------------------*/
-+/*--------------------------------------------------------------------
-+ * XXX: Optimize the single element case ?
-+ */
- 
- /*lint -e{818} ap,hp could be const */
- static char *
-@@ -496,6 +498,25 @@
- 
- /*--------------------------------------------------------------------*/
- 
-+void
-+VRT_l_req_esi(struct sess *sp, unsigned process_esi)
-+{
-+	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-+	/* only allow you to turn of esi in the main request
-+	   else everything gets confused */
-+	if(sp->esis == 0)
-+	   sp->disable_esi = !process_esi;
-+}
-+
-+unsigned
-+VRT_r_req_esi(struct sess *sp)
-+{
-+	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-+	return (!sp->disable_esi);
-+}
-+
-+/*--------------------------------------------------------------------*/
-+
- int
- VRT_r_req_restarts(const struct sess *sp)
- {
-@@ -846,20 +867,25 @@
- 	}
- 	b = BAN_New();
- 	good = 0;
--	for (i = 1; ; i += 3) {
--		a1 = av[i];
-+	for (i = 1; ;) {
-+		a1 = av[i++];
- 		if (a1 == NULL)
- 			break;
- 		good = 0;
--		a2 = av[i + 1];
-+		a2 = av[i++];
- 		if (a2 == NULL)
- 			break;
--		a3 = av[i + 2];
-+		a3 = av[i++];
- 		if (a3 == NULL)
- 			break;
- 		if (BAN_AddTest(NULL, b, a1, a2, a3))
- 			break;
- 		good = 1;
-+		if (av[i] == NULL)
-+			break;
-+		good = 0;
-+		if (strcmp(av[i++], "&&"))
-+			break;
- 	}
- 	if (!good) 
- 		/* XXX: report error how ? */
-Index: bin/varnishd/cache_http.c
-===================================================================
---- bin/varnishd/cache_http.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_http.c	(.../branches/2.0/varnish-cache)
-@@ -152,6 +152,11 @@
- 	unsigned u;
- 
- 	for (u = HTTP_HDR_FIRST; u < hp->nhd; u++) {
-+		/* XXX We have to check for empty header entries
-+		   because a header could have been lost in 
-+		   http_copyHome */
-+		if (hp->hd[u].b == NULL)
-+			continue;
- 		Tcheck(hp->hd[u]);
- 		if (hp->hd[u].e < hp->hd[u].b + l + 1)
- 			continue;
-@@ -327,12 +332,29 @@
- 	hp->conds = 0;
- 	r = NULL;		/* For FlexeLint */
- 	for (; p < t.e; p = r) {
--		/* XXX: handle continuation lines */
--		q = strchr(p, '\n');
--		assert(q != NULL);
--		r = q + 1;
--		if (q > p && q[-1] == '\r')
--			q--;
-+
-+		/* Find end of next header */
-+		q = r = p;
-+		while (r < t.e) {
-+			if (!vct_iscrlf(*r)) {
-+				r++;
-+				continue;
-+			}
-+			q = r;
-+			assert(r < t.e);
-+			r += vct_skipcrlf(r);
-+			if (r >= t.e)
-+				break;
-+			/* If line does not continue: got it. */
-+			if (!vct_issp(*r))
-+				break;
-+
-+			/* Clear line continuation LWS to spaces */
-+			while (vct_islws(*q))
-+				*q++ = ' ';
-+		}
-+
-+		/* Empty header = end of headers */
- 		if (p == q)
- 			break;
- 
-@@ -368,7 +390,7 @@
- http_splitline(struct worker *w, int fd, struct http *hp,
-     const struct http_conn *htc, int h1, int h2, int h3)
- {
--	char *p;
-+	char *p, *q;
- 
- 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
- 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
-@@ -381,40 +403,47 @@
- 		continue;
- 
- 	/* First field cannot contain SP, CRLF or CTL */
--	hp->hd[h1].b = p;
--	for (; !vct_issp(*p); p++)
-+	q = p;
-+	for (; !vct_issp(*p); p++) {
- 		if (vct_isctl(*p))
--			return (400);
-+			return (-1);
-+	}
-+	hp->hd[h1].b = q;
- 	hp->hd[h1].e = p;
- 
- 	/* Skip SP */
--	for (; vct_issp(*p); p++)
--		;
-+	for (; vct_issp(*p); p++) {
-+		if (vct_isctl(*p))
-+			return (-1);
-+	}
- 
--	/* Second field cannot contain LWS */
--	hp->hd[h2].b = p;
--	for (; !vct_islws(*p); p++)
--		;
-+	/* Second field cannot contain LWS or CTL */
-+	q = p;
-+	for (; !vct_islws(*p); p++) {
-+		if (vct_isctl(*p))
-+			return (-1);
-+	}
-+	hp->hd[h2].b = q;
- 	hp->hd[h2].e = p;
- 
- 	if (!Tlen(hp->hd[h2]))
- 		return (400);
- 
- 	/* Skip SP */
--	for (; vct_issp(*p); p++)
--		;
-+	for (; vct_issp(*p); p++) {
-+		if (vct_isctl(*p))
-+			return (-1);
-+	}
- 
- 	/* Third field is optional and cannot contain CTL */
-+	q = p;
- 	if (!vct_iscrlf(*p)) {
--		hp->hd[h3].b = p;
- 		for (; !vct_iscrlf(*p); p++)
- 			if (vct_isctl(*p))
--				return (400);
--		hp->hd[h3].e = p;
--	} else {
--		hp->hd[h3].b = p;
--		hp->hd[h3].e = p;
-+				return (-1);
- 	}
-+	hp->hd[h3].b = q;
-+	hp->hd[h3].e = p;
- 
- 	/* Skip CRLF */
- 	p += vct_skipcrlf(p);
-@@ -481,25 +510,35 @@
- http_DissectResponse(struct worker *w, const struct http_conn *htc,
-     struct http *hp)
- {
--	int i;
-+	int i = 0;
- 
- 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
- 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
- 	hp->logtag = HTTP_Rx;
- 
--	i = http_splitline(w, htc->fd, hp, htc,
--	    HTTP_HDR_PROTO, HTTP_HDR_STATUS, HTTP_HDR_RESPONSE);
-+	if (http_splitline(w, htc->fd, hp, htc,
-+	    HTTP_HDR_PROTO, HTTP_HDR_STATUS, HTTP_HDR_RESPONSE))
-+		i = 503;
- 
--	if (i != 0 || memcmp(hp->hd[HTTP_HDR_PROTO].b, "HTTP/1.", 7))
-+	if (i == 0 && memcmp(hp->hd[HTTP_HDR_PROTO].b, "HTTP/1.", 7))
-+		i = 503;
-+
-+	if (i == 0 && Tlen(hp->hd[HTTP_HDR_STATUS]) != 3)
-+		i = 503;
-+
-+	if (i == 0) {
-+		hp->status = strtoul(hp->hd[HTTP_HDR_STATUS].b, NULL, 10);
-+		if (hp->status < 100 || hp->status > 999)
-+			i = 503;
-+	}
-+
-+	if (i != 0) {
- 		WSLR(w, SLT_HttpGarbage, htc->fd, htc->rxbuf);
--	if (i != 0) {
--		if (hp->status == 0)
--			hp->status = i;
-+		hp->status = i;
- 	} else {
--		hp->status =
--		    strtoul(hp->hd[HTTP_HDR_STATUS].b, NULL /* XXX */, 10);
-+		http_ProtoVer(hp);
- 	}
--	http_ProtoVer(hp);
-+
- 	if (hp->hd[HTTP_HDR_RESPONSE].b == NULL ||
- 	    !Tlen(hp->hd[HTTP_HDR_RESPONSE])) {
- 		/* Backend didn't send a response string, use the standard */
-@@ -615,6 +654,8 @@
- 	to->nhd = HTTP_HDR_FIRST;
- 	to->status = fm->status;
- 	for (u = HTTP_HDR_FIRST; u < fm->nhd; u++) {
-+		if (fm->hd[u].b == NULL)
-+			continue;
- 		if (fm->hdf[u] & HDF_FILTER)
- 			continue;
- #define HTTPH(a, b, c, d, e, f, g) \
-@@ -675,6 +716,8 @@
- 			hp->hd[u].b = p;
- 			hp->hd[u].e = p + l;
- 		} else {
-+			/* XXX This leaves a slot empty */
-+			VSL_stats->losthdr++;
- 			WSLR(w, SLT_LostHeader, fd, hp->hd[u]);
- 			hp->hd[u].b = NULL;
- 			hp->hd[u].e = NULL;
-@@ -793,6 +836,8 @@
- 	unsigned u, v;
- 
- 	for (v = u = HTTP_HDR_FIRST; u < hp->nhd; u++) {
-+		if (hp->hd[u].b == NULL)
-+			continue;
- 		if (http_IsHdr(&hp->hd[u], hdr))
- 			continue;
- 		if (v != u) {
-@@ -829,6 +874,8 @@
- 		WSLH(w, *w->wfd, hp, HTTP_HDR_PROTO);
- 	}
- 	for (u = HTTP_HDR_FIRST; u < hp->nhd; u++) {
-+		if (hp->hd[u].b == NULL)
-+			continue;
- 		AN(hp->hd[u].b);
- 		AN(hp->hd[u].e);
- 		l += WRW_WriteH(w, &hp->hd[u], "\r\n");
 Index: bin/varnishd/cache_center.c
 ===================================================================
---- bin/varnishd/cache_center.c	(.../tags/varnish-2.0.4/varnish-cache)
+--- bin/varnishd/cache_center.c	(.../tags/varnish-2.0.5/varnish-cache)
 +++ bin/varnishd/cache_center.c	(.../branches/2.0/varnish-cache)
-@@ -80,17 +80,15 @@
- static unsigned xids;
- 
- /*--------------------------------------------------------------------
-- * AGAIN
-- * We come here when we just completed a request and already have
-- * received (part of) the next one.  Instead taking the detour
-- * around the acceptor and then back to a worker, just stay in this
-- * worker and do what it takes.
-+ * WAIT
-+ * Wait until we have a full request in our htc.
-  */
- 
- static int
--cnt_again(struct sess *sp)
-+cnt_wait(struct sess *sp)
- {
- 	int i;
-+	struct pollfd pfd[1];
- 
- 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
- 	AZ(sp->vcl);
-@@ -98,12 +96,32 @@
- 	assert(sp->xid == 0);
- 
- 	i = HTC_Complete(sp->htc);
--	while (i == 0)
-+	while (i == 0) {
-+		if (params->session_linger > 0) {
-+			pfd[0].fd = sp->fd;
-+			pfd[0].events = POLLIN;
-+			pfd[0].revents = 0;
-+			i = poll(pfd, 1, params->session_linger);
-+			if (i == 0) {
-+				WSL(sp->wrk, SLT_Debug, sp->fd, "herding");
-+				VSL_stats->sess_herd++;
-+				sp->wrk = NULL;
-+				vca_return_session(sp);
-+				return (1);
-+			}
-+		}
- 		i = HTC_Rx(sp->htc);
-+	}
- 	if (i == 1) {
- 		sp->step = STP_START;
- 	} else {
--		vca_close_session(sp, "overflow");
-+		if (i == -2)
-+			vca_close_session(sp, "overflow");
-+		else if (i == -1 && Tlen(sp->htc->rxbuf) == 0 &&
-+		    (errno == 0 || errno == ECONNRESET))
-+			vca_close_session(sp, "EOF");
-+		else 
-+			vca_close_session(sp, "error");
- 		sp->step = STP_DONE;
- 	}
- 	return (0);
-@@ -198,7 +216,6 @@
- cnt_done(struct sess *sp)
- {
- 	double dh, dp, da;
--	struct pollfd pfd[1];
- 	int i;
- 
- 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-@@ -240,8 +257,14 @@
- 
- 	sp->t_req = NAN;
- 
--	if (sp->fd >= 0 && sp->doclose != NULL)
-+	if (sp->fd >= 0 && sp->doclose != NULL) {
-+		/*
-+		 * This is an orderly close of the connection; ditch linger 
-+		 * before we close, to get queued data transmitted.
-+		 */
-+		TCP_linger(sp->fd, 0);
- 		vca_close_session(sp, sp->doclose);
-+	}
- 	if (sp->fd < 0) {
- 		SES_Charge(sp);
- 		VSL_stats->sess_closed++;
-@@ -261,19 +284,13 @@
- 	}
- 	if (Tlen(sp->htc->rxbuf)) {
- 		VSL_stats->sess_readahead++;
--		sp->step = STP_AGAIN;
-+		sp->step = STP_WAIT;
- 		return (0);
- 	}
- 	if (params->session_linger > 0) {
--		pfd[0].fd = sp->fd;
--		pfd[0].events = POLLIN;
--		pfd[0].revents = 0;
--		i = poll(pfd, 1, params->session_linger);
--		if (i > 0) {
--			VSL_stats->sess_linger++;
--			sp->step = STP_AGAIN;
--			return (0);
--		}
-+		VSL_stats->sess_linger++;
-+		sp->step = STP_WAIT;
-+		return (0);
- 	}
- 	VSL_stats->sess_herd++;
- 	SES_Charge(sp);
-@@ -307,7 +324,7 @@
- 
- 	w = sp->wrk;
- 	if (sp->obj == NULL) {
--		HSH_Prealloc(sp);
-+		HSH_Prealloc(sp, 1);
- 		sp->obj = sp->wrk->nobj;
- 		sp->obj->xid = sp->xid;
- 		sp->obj->entered = sp->t_req;
-@@ -318,6 +335,9 @@
- 	CHECK_OBJ_NOTNULL(sp->obj, OBJECT_MAGIC);
- 	h = sp->obj->http;
- 
-+	if (sp->err_code < 100 || sp->err_code > 999)
-+		sp->err_code = 501;
-+
- 	http_PutProtocol(w, sp->fd, h, "HTTP/1.1");
- 	http_PutStatus(w, sp->fd, h, sp->err_code);
- 	TIM_format(TIM_real(), date);
-@@ -332,13 +352,15 @@
- 		    http_StatusMessage(sp->err_code));
- 	VCL_error_method(sp);
- 
--	if (sp->handling == VCL_RET_RESTART) {
-+	if (sp->handling == VCL_RET_RESTART && sp->restarts <  params->max_restarts) {
- 		HSH_Drop(sp);
- 		sp->director = NULL;
- 		sp->restarts++;
- 		sp->step = STP_RECV;
- 		return (0);
--	}
-+	} else if (sp->handling == VCL_RET_RESTART)
-+		sp->handling = VCL_RET_DELIVER;
-+		  
- 
- 	/* We always close when we take this path */
- 	sp->doclose = "error";
-@@ -439,6 +461,7 @@
- 	if (sp->obj->objhead != NULL) {
- 		VRY_Create(sp);
- 		EXP_Insert(sp->obj);
-+		AN(sp->obj->ban);
- 		HSH_Unbusy(sp);
- 	}
- 	sp->acct_req.fetch++;
-@@ -452,7 +475,6 @@
- static int
- cnt_first(struct sess *sp)
- {
--	int i;
- 
- 	/*
- 	 * XXX: If we don't have acceptfilters we are somewhat subject
-@@ -473,25 +495,8 @@
- 	sp->wrk->lastused = sp->t_open;
- 	sp->acct_req.sess++;
- 	SES_RefSrcAddr(sp);
--	do
--		i = HTC_Rx(sp->htc);
--	while (i == 0);
- 
--	switch (i) {
--	case 1:
--		sp->step = STP_START;
--		break;
--	case -1:
--		vca_close_session(sp, "error");
--		sp->step = STP_DONE;
--		break;
--	case -2:
--		vca_close_session(sp, "blast");
--		sp->step = STP_DONE;
--		break;
--	default:
--		WRONG("Illegal return from HTC_Rx");
--	}
-+	sp->step = STP_WAIT;
- 	return (0);
- }
- 
-@@ -734,7 +739,7 @@
- 	}
- 	assert(sp->handling == VCL_RET_PASS);
- 	sp->acct_req.pass++;
--	HSH_Prealloc(sp);
-+	HSH_Prealloc(sp, 0);
- 	sp->obj = sp->wrk->nobj;
- 	sp->wrk->nobj = NULL;
- 	sp->obj->busy = 1;
-@@ -824,6 +829,8 @@
- 	sp->director = sp->vcl->director[0];
- 	AN(sp->director);
- 
-+      	sp->disable_esi = 0;
-+	
- 	VCL_recv_method(sp);
- 	if (sp->restarts >= params->max_restarts) {
- 		if (sp->err_code == 0)
-@@ -898,6 +905,13 @@
- 	http_Setup(sp->http, sp->ws);
- 	done = http_DissectRequest(sp);
- 
-+	/* If we could not even parse the request, just close */
-+	if (done < 0) {
-+		sp->step = STP_DONE;
-+		vca_close_session(sp, "junk");
-+		return (0);
-+	}
-+
- 	/* Catch request snapshot */
- 	sp->ws_req = WS_Snapshot(sp->ws);
- 
-@@ -926,6 +940,10 @@
- 
- 		/* XXX: Don't bother with write failures for now */
- 		(void)write(sp->fd, r, strlen(r));
-+		/* XXX: When we do ESI includes, this is not removed
-+		 * XXX: because we use http0 as our basis.  Believed
-+		 * XXX: safe, but potentially confusing.
-+		 */
- 		http_Unset(sp->http, H_Expect);
- 	}
- 
-Index: bin/varnishd/cache_session.c
-===================================================================
---- bin/varnishd/cache_session.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_session.c	(.../branches/2.0/varnish-cache)
-@@ -249,35 +249,16 @@
- 
- /*--------------------------------------------------------------------*/
- 
--struct sess *
--SES_New(const struct sockaddr *addr, unsigned len)
-+static struct sess *
-+ses_setup(struct sessmem *sm, const struct sockaddr *addr, unsigned len)
- {
--	struct sessmem *sm;
- 	struct sess *sp;
- 	volatile unsigned u;
- 
--	/*
--	 * One of the two queues is unlocked because only one
--	 * thread ever gets here to empty it.
--	 */
--	assert(ses_qp <= 1);
--	sm = VTAILQ_FIRST(&ses_free_mem[ses_qp]);
- 	if (sm == NULL) {
-+		if (VSL_stats->n_sess_mem >= params->max_sess)
-+			return (NULL);
- 		/*
--		 * If that queue is empty, flip queues holding the lock
--		 * and try the new unlocked queue.
--		 */
--		Lck_Lock(&ses_mem_mtx);
--		ses_qp = 1 - ses_qp;
--		Lck_Unlock(&ses_mem_mtx);
--		sm = VTAILQ_FIRST(&ses_free_mem[ses_qp]);
--	}
--	if (sm != NULL) {
--		VTAILQ_REMOVE(&ses_free_mem[ses_qp], sm, list);
--	} else {
--		/*
--		 * If that fails, alloc new one.
--		 *
- 		 * It is not necessary to lock mem_workspace, but we
- 		 * need to cache it locally, to make sure we get a
- 		 * consistent view of it.
-@@ -286,6 +267,8 @@
- 		sm = malloc(sizeof *sm + u);
- 		if (sm == NULL)
- 			return (NULL);
-+		/* Don't waste time zeroing the workspace */
-+		memset(sm, 0, sizeof *sm);
- 		sm->magic = SESSMEM_MAGIC;
- 		sm->workspace = u;
- 		VSL_stats->n_sess_mem++;
-@@ -293,7 +276,6 @@
- 	CHECK_OBJ_NOTNULL(sm, SESSMEM_MAGIC);
- 	VSL_stats->n_sess++;
- 	sp = &sm->sess;
--	memset(sp, 0, sizeof *sp);
- 	sp->magic = SESS_MAGIC;
- 	sp->mem = sm;
- 	sp->sockaddr = (void*)(&sm->sockaddr[0]);
-@@ -306,7 +288,8 @@
- 	sp->t_resp = NAN;
- 	sp->t_end = NAN;
- 	sp->grace = NAN;
--
-+	sp->disable_esi = 0;
-+	
- 	assert(len <= sp->sockaddrlen);
- 	if (addr != NULL) {
- 		memcpy(sp->sockaddr, addr, len);
-@@ -322,11 +305,49 @@
- 	return (sp);
- }
- 
-+/*--------------------------------------------------------------------
-+ * Try to recycle an existing session.
-+ */
-+
-+struct sess *
-+SES_New(const struct sockaddr *addr, unsigned len)
-+{
-+	struct sessmem *sm;
-+
-+	assert(pthread_self() == VCA_thread);
-+	assert(ses_qp <= 1);
-+	sm = VTAILQ_FIRST(&ses_free_mem[ses_qp]);
-+	if (sm == NULL) {
-+		/*
-+		 * If that queue is empty, flip queues holding the lock
-+		 * and try the new unlocked queue.
-+		 */
-+		Lck_Lock(&ses_mem_mtx);
-+		ses_qp = 1 - ses_qp;
-+		Lck_Unlock(&ses_mem_mtx);
-+		sm = VTAILQ_FIRST(&ses_free_mem[ses_qp]);
-+	}
-+	if (sm != NULL)
-+		VTAILQ_REMOVE(&ses_free_mem[ses_qp], sm, list);
-+	return (ses_setup(sm, addr, len));
-+}
-+
-+/*--------------------------------------------------------------------*/
-+
-+struct sess *
-+SES_Alloc(const struct sockaddr *addr, unsigned len)
-+{
-+	return (ses_setup(NULL, addr, len));
-+}
-+
-+/*--------------------------------------------------------------------*/
-+
- void
- SES_Delete(struct sess *sp)
- {
- 	struct acct *b = &sp->acct;
- 	struct sessmem *sm;
-+	unsigned workspace;
- 
- 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
- 	sm = sp->mem;
-@@ -346,6 +367,12 @@
- 		VSL_stats->n_sess_mem--;
- 		free(sm);
- 	} else {
-+		/* Clean and prepare for reuse */
-+		workspace = sm->workspace;
-+		memset(sm, 0, sizeof *sm);
-+		sm->magic = SESSMEM_MAGIC;
-+		sm->workspace = workspace;
-+
- 		Lck_Lock(&ses_mem_mtx);
- 		VTAILQ_INSERT_HEAD(&ses_free_mem[1 - ses_qp], sm, list);
- 		Lck_Unlock(&ses_mem_mtx);
-Index: bin/varnishd/cache_hash.c
-===================================================================
---- bin/varnishd/cache_hash.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_hash.c	(.../branches/2.0/varnish-cache)
-@@ -82,13 +82,14 @@
- 
- /* Precreate an objhead and object for later use */
- void
--HSH_Prealloc(struct sess *sp)
-+HSH_Prealloc(struct sess *sp, int transient)
- {
- 	struct worker *w;
- 	struct objhead *oh;
- 	struct object *o;
- 	struct storage *st;
--
-+	void *p;
-+	
- 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
- 	CHECK_OBJ_NOTNULL(sp->wrk, WORKER_MAGIC);
- 	w = sp->wrk;
-@@ -106,16 +107,26 @@
- 		CHECK_OBJ_NOTNULL(w->nobjhead, OBJHEAD_MAGIC);
- 
- 	if (w->nobj == NULL) {
--		st = STV_alloc(sp, params->obj_workspace);
--		XXXAN(st);
--		assert(st->space > sizeof *w->nobj);
--		o = (void *)st->ptr; /* XXX: align ? */
--		st->len = sizeof *o;
--		memset(o, 0, sizeof *o);
--		o->objstore = st;
--		WS_Init(o->ws_o, "obj",
--		    st->ptr + st->len, st->space - st->len);
--		st->len = st->space;
-+		if (transient) {
-+			p = malloc(sizeof *o + params->obj_workspace);
-+			XXXAN(p);
-+			o = p;
-+			p = o + 1;
-+			memset(o, 0, sizeof *o);
-+			o->magic = OBJECT_MAGIC;
-+			WS_Init(o->ws_o, "obj", p, params->obj_workspace);
-+		} else {
-+			st = STV_alloc(sp, params->obj_workspace);
-+			XXXAN(st);
-+			assert(st->space > sizeof *w->nobj);
-+			o = (void *)st->ptr; /* XXX: align ? */
-+			st->len = sizeof *o;
-+			memset(o, 0, sizeof *o);
-+			o->objstore = st;
-+			WS_Init(o->ws_o, "obj",
-+			    st->ptr + st->len, st->space - st->len);
-+			st->len = st->space;
-+		}
- 		WS_Assert(o->ws_o);
- 		http_Setup(o->http, o->ws_o);
- 		o->magic = OBJECT_MAGIC;
-@@ -239,7 +250,7 @@
- 	AN(hash);
- 	w = sp->wrk;
- 
--	HSH_Prealloc(sp);
-+	HSH_Prealloc(sp, 0);
- 	SHA256_Final(sp->wrk->nobjhead->digest, sp->wrk->sha256ctx);
- 	
- 	if (sp->objhead != NULL) {
-@@ -449,7 +460,8 @@
- 	if (r != 0)
- 		return;
- 
--	BAN_DestroyObj(o);
-+	if (oh != NULL)
-+		BAN_DestroyObj(o);
- 	DSL(0x40, SLT_Debug, 0, "Object %u workspace min free %u",
- 	    o->xid, WS_Free(o->ws_o));
- 
-@@ -458,7 +470,11 @@
- 
- 	ESI_Destroy(o);
- 	HSH_Freestore(o);
--	STV_free(o->objstore);
-+	if (o->objstore != NULL)
-+		STV_free(o->objstore);
-+	else
-+		FREE_OBJ(o);
-+		
- 	VSL_stats->n_object--;
- 
- 	if (oh == NULL)
-Index: bin/varnishd/cache_acceptor_poll.c
-===================================================================
---- bin/varnishd/cache_acceptor_poll.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_acceptor_poll.c	(.../branches/2.0/varnish-cache)
-@@ -146,6 +146,7 @@
- 				continue;
- 			VTAILQ_REMOVE(&sesshead, sp, list);
- 			vca_unpoll(fd);
-+			TCP_linger(sp->fd, 0);
- 			vca_close_session(sp, "timeout");
- 			SES_Delete(sp);
- 		}
-Index: bin/varnishd/cache_acceptor_ports.c
-===================================================================
---- bin/varnishd/cache_acceptor_ports.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_acceptor_ports.c	(.../branches/2.0/varnish-cache)
-@@ -138,6 +138,7 @@
- 			VTAILQ_REMOVE(&sesshead, sp, list);
- 			if(sp->fd != -1)
- 				vca_del(sp->fd);
-+			TCP_linger(sp->fd, 0);
- 			vca_close_session(sp, "timeout");
- 			SES_Delete(sp);
- 		}
-Index: bin/varnishd/cache_acceptor_epoll.c
-===================================================================
---- bin/varnishd/cache_acceptor_epoll.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_acceptor_epoll.c	(.../branches/2.0/varnish-cache)
-@@ -1,8 +1,10 @@
- /*-
-  * Copyright (c) 2006 Verdens Gang AS
-- * Copyright (c) 2006-2008 Linpro AS
-+ * Copyright (c) 2006-2009 Linpro AS
-  * All rights reserved.
-  *
-+ * Author: Rogerio Carvalho Schneider <stockrt@gmail.com>
-+ *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions
-  * are met:
-@@ -36,8 +38,9 @@
- #if defined(HAVE_EPOLL_CTL)
- 
- #include <stdio.h>
-+#include <string.h>
- #include <errno.h>
--#include <string.h>
-+#include <fcntl.h>
- #include <stdlib.h>
- #include <unistd.h>
- 
-@@ -47,77 +50,149 @@
- #include "cache.h"
- #include "cache_acceptor.h"
- 
-+#define NEEV	100
-+
- static pthread_t vca_epoll_thread;
-+static pthread_t vca_epoll_sess_timeout_ticker_thread;
- static int epfd = -1;
- 
- static VTAILQ_HEAD(,sess) sesshead = VTAILQ_HEAD_INITIALIZER(sesshead);
-+int dotimer_pipe[2];
- 
- static void
--vca_add(int fd, void *data)
-+vca_modadd(int fd, void *data, short arm)
- {
--	struct epoll_event ev = { EPOLLIN | EPOLLPRI, { data } };
--	AZ(epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev));
-+
-+	assert(fd >= 0);
-+	if (data == vca_pipes || data == dotimer_pipe) {
-+		struct epoll_event ev = { EPOLLIN | EPOLLPRI | EPOLLET, { data } };
-+		AZ(epoll_ctl(epfd, arm, fd, &ev));
-+	} else {
-+		struct sess *sp = (struct sess *)data;
-+		CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-+		sp->ev.data.ptr = data;
-+#if defined(EPOLLRDHUP)
-+		sp->ev.events = EPOLLIN | EPOLLPRI | EPOLLONESHOT | EPOLLRDHUP;
-+#else
-+		sp->ev.events = EPOLLIN | EPOLLPRI | EPOLLONESHOT;
-+#endif
-+		AZ(epoll_ctl(epfd, arm, fd, &sp->ev));
-+	}
- }
- 
- static void
--vca_del(int fd)
-+vca_cond_modadd(int fd, void *data)
- {
--	struct epoll_event ev = { 0, { 0 } };
--	AZ(epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &ev));
-+	struct sess *sp = (struct sess *)data;
-+
-+	assert(fd >= 0);
-+	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-+	if (sp->ev.data.ptr)
-+		AZ(epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &sp->ev));
-+	else {
-+		sp->ev.data.ptr = data;
-+#if defined(EPOLLRDHUP)
-+		sp->ev.events = EPOLLIN | EPOLLPRI | EPOLLONESHOT | EPOLLRDHUP;
-+#else
-+		sp->ev.events = EPOLLIN | EPOLLPRI | EPOLLONESHOT;
-+#endif
-+		AZ(epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &sp->ev));
-+	}
- }
- 
-+static void
-+vca_eev(const struct epoll_event *ep)
-+{
-+	struct sess *ss[NEEV], *sp;
-+	int i, j;
-+
-+	AN(ep->data.ptr);
-+	if (ep->data.ptr == vca_pipes) {
-+		if (ep->events & EPOLLIN || ep->events & EPOLLPRI) {
-+			j = 0;
-+			i = read(vca_pipes[0], ss, sizeof ss);
-+			if (i == -1 && errno == EAGAIN)
-+				return;
-+			while (i >= sizeof ss[0]) {
-+				CHECK_OBJ_NOTNULL(ss[j], SESS_MAGIC);
-+				assert(ss[j]->fd >= 0);
-+				AZ(ss[j]->obj);
-+				VTAILQ_INSERT_TAIL(&sesshead, ss[j], list);
-+				vca_cond_modadd(ss[j]->fd, ss[j]);
-+				j++;
-+				i -= sizeof ss[0];
-+			}
-+			assert(i == 0);
-+		}
-+	} else {
-+		CAST_OBJ_NOTNULL(sp, ep->data.ptr, SESS_MAGIC);
-+		if (ep->events & EPOLLIN || ep->events & EPOLLPRI) {
-+			i = HTC_Rx(sp->htc);
-+			if (i == 0) {
-+				vca_modadd(sp->fd, sp, EPOLL_CTL_MOD);
-+				return;	/* more needed */
-+			}
-+			VTAILQ_REMOVE(&sesshead, sp, list);
-+			vca_handover(sp, i);
-+		} else if (ep->events & EPOLLERR) {
-+			VTAILQ_REMOVE(&sesshead, sp, list);
-+			vca_close_session(sp, "ERR");
-+			SES_Delete(sp);
-+		} else if (ep->events & EPOLLHUP) {
-+			VTAILQ_REMOVE(&sesshead, sp, list);
-+			vca_close_session(sp, "HUP");
-+			SES_Delete(sp);
-+#if defined(EPOLLRDHUP)
-+		} else if (ep->events & EPOLLRDHUP) {
-+			VTAILQ_REMOVE(&sesshead, sp, list);
-+			vca_close_session(sp, "RHUP");
-+			SES_Delete(sp);
-+#endif
-+		}
-+	}
-+}
-+
-+/*--------------------------------------------------------------------*/
-+
- static void *
- vca_main(void *arg)
- {
--	struct epoll_event ev;
-+	struct epoll_event ev[NEEV], *ep;
-+	struct sess *sp;
- 	double deadline;
--	int dotimer = 0;
--	double last_timeout = 0, tmp_timeout;
--	struct sess *sp, *sp2;
--	int i;
-+	int dotimer, i, n;
- 
- 	THR_SetName("cache-epoll");
- 	(void)arg;
- 
--	epfd = epoll_create(16);
-+	epfd = epoll_create(1);
- 	assert(epfd >= 0);
- 
--	vca_add(vca_pipes[0], vca_pipes);
-+	vca_modadd(vca_pipes[0], vca_pipes, EPOLL_CTL_ADD);
-+	vca_modadd(dotimer_pipe[0], dotimer_pipe, EPOLL_CTL_ADD);
- 
- 	while (1) {
--		if ((dotimer = epoll_wait(epfd, &ev, 1, 100)) > 0) {
--			if (ev.data.ptr == vca_pipes) {
--				i = read(vca_pipes[0], &sp, sizeof sp);
--				assert(i == sizeof sp);
--				CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
--				VTAILQ_INSERT_TAIL(&sesshead, sp, list);
--				vca_add(sp->fd, sp);
--			} else {
--				CAST_OBJ_NOTNULL(sp, ev.data.ptr, SESS_MAGIC);
--				i = HTC_Rx(sp->htc);
--				if (i != 0) {
--					VTAILQ_REMOVE(&sesshead, sp, list);
--					vca_del(sp->fd);
--					vca_handover(sp, i);
--				}
--			}
-+		dotimer = 0;
-+		n = epoll_wait(epfd, ev, NEEV, -1);
-+		for (ep = ev, i = 0; i < n; i++, ep++) {
-+			if (ep->data.ptr == dotimer_pipe && (ep->events == EPOLLIN || ep->events == EPOLLPRI))
-+				dotimer = 1;
-+			else
-+				vca_eev(ep);
- 		}
--		tmp_timeout = TIM_mono();
--		if ((tmp_timeout - last_timeout) > 60) {
--			last_timeout = tmp_timeout;
--		} else {
--			if (dotimer > 0)
--				continue;
--		}
-+		if (!dotimer)
-+			continue;
- 
- 		/* check for timeouts */
- 		deadline = TIM_real() - params->sess_timeout;
--		VTAILQ_FOREACH_SAFE(sp, &sesshead, list, sp2) {
--			CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-+		for (;;) {
-+			sp = VTAILQ_FIRST(&sesshead);
-+			if (sp == NULL)
-+				break;
- 			if (sp->t_open > deadline)
--				continue;
-+				break;
- 			VTAILQ_REMOVE(&sesshead, sp, list);
--			vca_del(sp->fd);
-+			TCP_linger(sp->fd, 0);
- 			vca_close_session(sp, "timeout");
- 			SES_Delete(sp);
- 		}
-@@ -126,10 +201,44 @@
- 
- /*--------------------------------------------------------------------*/
- 
-+static void *
-+vca_sess_timeout_ticker(void *arg)
-+{
-+	char ticker = 'R';
-+	char junk;
-+
-+	THR_SetName("cache-epoll-sess_timeout_ticker");
-+	(void)arg;
-+
-+	while (1) {
-+		/* ticking */
-+		assert(write(dotimer_pipe[1], &ticker, 1));
-+		TIM_sleep(100 * 1e-3);
-+		assert(read(dotimer_pipe[0], &junk, 1));
-+	}
-+}
-+
-+/*--------------------------------------------------------------------*/
-+
- static void
- vca_epoll_init(void)
- {
-+	int i;
- 
-+	i = fcntl(vca_pipes[0], F_GETFL);
-+	assert(i != -1);
-+	i |= O_NONBLOCK;
-+	i = fcntl(vca_pipes[0], F_SETFL, i);
-+	assert(i != -1);
-+
-+	AZ(pipe(dotimer_pipe));
-+	i = fcntl(dotimer_pipe[0], F_GETFL);
-+	assert(i != -1);
-+	i |= O_NONBLOCK;
-+	i = fcntl(dotimer_pipe[0], F_SETFL, i);
-+	assert(i != -1);
-+
-+	AZ(pthread_create(&vca_epoll_sess_timeout_ticker_thread, NULL, vca_sess_timeout_ticker, NULL));
- 	AZ(pthread_create(&vca_epoll_thread, NULL, vca_main, NULL));
- }
- 
+@@ -105,6 +105,7 @@
+ 			if (i == 0) {
+ 				WSL(sp->wrk, SLT_Debug, sp->fd, "herding");
+ 				VSL_stats->sess_herd++;
++				SES_Charge(sp);
+ 				sp->wrk = NULL;
+ 				vca_return_session(sp);
+ 				return (1);
 Index: bin/varnishd/varnishd.c
 ===================================================================
---- bin/varnishd/varnishd.c	(.../tags/varnish-2.0.4/varnish-cache)
+--- bin/varnishd/varnishd.c	(.../tags/varnish-2.0.5/varnish-cache)
 +++ bin/varnishd/varnishd.c	(.../branches/2.0/varnish-cache)
-@@ -339,7 +339,8 @@
- 	pipes[1][1] = 1;
- 
- 	/* close the rest */
--	for (i = 5; i < getdtablesize(); i++)
-+	j = getdtablesize();
-+	for (i = 5; i < j; i++)
- 		(void)close(i);
- 
- 	pfd[0].fd = pipes[0][0];
-@@ -414,6 +415,92 @@
- 	exit (2);
- }
- 
-+/*--------------------------------------------------------------------
-+ * All praise POSIX!  Thanks to our glorious standards there are no
-+ * standard way to get a back-trace of the stack, and even if we hack
-+ * that together from spit and pieces of string, there is no way no
-+ * standard way to translate a pointer to a symbol, which returns anything
-+ * usable.  (See for instance FreeBSD PR-134391).
-+ *
-+ * Attempt to run nm(1) on our binary during startup, hoping it will
-+ * give us a usable list of symbols.
-+ */
-+
-+struct symbols {
-+	uintptr_t		a;
-+	char			*n;
-+	VTAILQ_ENTRY(symbols)	list;
-+};
-+
-+static VTAILQ_HEAD(,symbols) symbols = VTAILQ_HEAD_INITIALIZER(symbols);
-+
-+int
-+Symbol_Lookup(struct vsb *vsb, void *ptr)
-+{
-+	struct symbols *s, *s0;
-+	uintptr_t pp;
-+
-+	pp = (uintptr_t)ptr;
-+	s0 = NULL;
-+	VTAILQ_FOREACH(s, &symbols, list) {
-+		if (s->a > pp)
-+			continue;
-+		if (s0 == NULL || s->a > s0->a)
-+			s0 = s;
-+	}
-+	if (s0 == NULL)
-+		return (-1);
-+	vsb_printf(vsb, "%p: %s+%jx", ptr, s0->n, (uintmax_t)pp - s0->a);
-+	return (0);
-+}
-+
-+static void
-+Symbol_hack(const char *a0)
-+{
-+	char buf[BUFSIZ], *p, *e;
-+	FILE *fi;
-+	uintptr_t a;
-+	struct symbols *s;
-+
-+	p = NULL;
-+	asprintf(&p, "nm -an %s 2>/dev/null", a0);
-+	if (p == NULL)
-+		return;
-+	fi = popen(p, "r");
-+	free(p);
-+	if (fi == NULL) 
-+		return;
-+	while (fgets(buf, sizeof buf, fi)) {
-+		if (buf[0] == ' ')
-+			continue;
-+		p = NULL;
-+		a = strtoul(buf, &p, 16);
-+		if (p == NULL)
-+			continue;
-+		if (a == 0)
-+			continue;
-+		if (*p++ != ' ')
-+			continue;
-+		p++;
-+		if (*p++ != ' ')
-+			continue;
-+		if (*p <= ' ')
-+			continue;
-+		e = strchr(p, '\0');
-+		AN(e);
-+		while (e > p && isspace(e[-1]))
-+			e--;
-+		*e = '\0';
-+		s = malloc(sizeof *s + strlen(p) + 1);
-+		AN(s);
-+		s->a = a;
-+		s->n = (void*)(s + 1);
-+		strcpy(s->n, p);
-+		VTAILQ_INSERT_TAIL(&symbols, s, list);
-+	}
-+	(void)pclose(fi);
-+}
-+
- /*--------------------------------------------------------------------*/
- 
- int
-@@ -443,6 +530,11 @@
- 	setbuf(stdout, NULL);
- 	setbuf(stderr, NULL);
- 
-+	Symbol_hack(argv[0]);
-+
-+	/* for ASSERT_MGT() */
-+	mgt_pid = getpid();
-+
- 	/*
- 	 * Run in UTC timezone, on the off-chance that this operating
- 	 * system does not have a timegm() function, and translates
+@@ -209,6 +209,7 @@
+ 	fprintf(stderr, FMT, "-b address:port", "backend address and port");
+ 	fprintf(stderr, FMT, "", "   -b <hostname_or_IP>");
+ 	fprintf(stderr, FMT, "", "   -b '<hostname_or_IP>:<port_or_service>'");
++	fprintf(stderr, FMT, "-C", "print VCL code compiled to C language");
+ 	fprintf(stderr, FMT, "-d", "debug");
+ 	fprintf(stderr, FMT, "-f file", "VCL script");
+ 	fprintf(stderr, FMT, "-F", "Run in foreground");
 Index: bin/varnishd/cache_pool.c
 ===================================================================
---- bin/varnishd/cache_pool.c	(.../tags/varnish-2.0.4/varnish-cache)
+--- bin/varnishd/cache_pool.c	(.../tags/varnish-2.0.5/varnish-cache)
 +++ bin/varnishd/cache_pool.c	(.../branches/2.0/varnish-cache)
-@@ -618,6 +618,58 @@
- 	}
- }
- 
-+/*--------------------------------------------------------------------
-+ * Create and starte a back-ground thread which as its own worker and
-+ * session data structures;
-+ */
-+
-+struct bgthread {
-+	unsigned	magic;
-+#define BGTHREAD_MAGIC	0x23b5152b
-+	const char	*name;
-+	bgthread_t	*func;
-+	void		*priv;
-+};
-+
-+static void *
-+wrk_bgthread(void *arg)
-+{
-+	struct bgthread *bt;
-+	struct worker ww;
-+	struct sess *sp;
-+	unsigned char logbuf[1024];	/* XXX:  size ? */
-+
-+	CAST_OBJ_NOTNULL(bt, arg, BGTHREAD_MAGIC);
-+	THR_SetName(bt->name);
-+	sp = SES_Alloc(NULL, 0);
-+	XXXAN(sp);
-+	memset(&ww, 0, sizeof ww);
-+	sp->wrk = &ww;
-+	ww.magic = WORKER_MAGIC;
-+	ww.wlp = ww.wlb = logbuf;
-+	ww.wle = logbuf + sizeof logbuf;
-+
-+	(void)bt->func(sp, bt->priv);
-+
-+	WRONG("BgThread terminated");
-+
-+	return (NULL);
-+}
-+
-+void
-+WRK_BgThread(pthread_t *thr, const char *name, bgthread_t *func, void *priv)
-+{
-+	struct bgthread *bt;
-+
-+	ALLOC_OBJ(bt, BGTHREAD_MAGIC);
-+	AN(bt);
-+
-+	bt->name = name;
-+	bt->func = func;
-+	bt->priv = priv;
-+	AZ(pthread_create(thr, NULL, wrk_bgthread, bt));
-+}
-+
- /*--------------------------------------------------------------------*/
- 
- void
-Index: bin/varnishd/cache_backend_poll.c
-===================================================================
---- bin/varnishd/cache_backend_poll.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_backend_poll.c	(.../branches/2.0/varnish-cache)
-@@ -241,18 +241,82 @@
- }
- 
- /*--------------------------------------------------------------------
-- * One thread per backend to be poked.
-+ * Record pokings...
+@@ -551,7 +551,7 @@
   */
  
--static void *
--vbp_wrk_poll_backend(void *priv)
-+static void
-+vbp_start_poke(struct vbp_target *vt)
+ static void
+-wrk_breed_flock(struct wq *qp)
++wrk_breed_flock(struct wq *qp, const pthread_attr_t *tp_attr)
  {
--	struct vbp_target *vt;
-+	CHECK_OBJ_NOTNULL(vt, VBP_TARGET_MAGIC);
-+
-+#define BITMAP(n, c, t, b)	vt->n <<= 1;
-+#include "cache_backend_poll.h"
-+#undef BITMAP
-+
-+	vt->last = 0;
-+	vt->resp_buf[0] = '\0';
-+}
-+
-+static void
-+vbp_has_poked(struct vbp_target *vt)
-+{
- 	unsigned i, j;
- 	uint64_t u;
- 	const char *logmsg;
- 	char bits[10];
+ 	pthread_t tp;
  
-+	CHECK_OBJ_NOTNULL(vt, VBP_TARGET_MAGIC);
-+
-+	/* Calculate exponential average */
-+	if (vt->happy & 1) {
-+		if (vt->rate < AVG_RATE)
-+			vt->rate += 1.0;
-+		vt->avg += (vt->last - vt->avg) / vt->rate;
-+	}
-+
-+	i = 0;
-+#define BITMAP(n, c, t, b)	bits[i++] = (vt->n & 1) ? c : '-';
-+#include "cache_backend_poll.h"
-+#undef BITMAP
-+	bits[i] = '\0';
-+
-+	u = vt->happy;
-+	for (i = j = 0; i < vt->probe.window; i++) {
-+		if (u & 1)
-+			j++;
-+		u >>= 1;
-+	}
-+	vt->good = j;
-+
-+	if (vt->good >= vt->probe.threshold) {
-+		if (vt->backend->healthy)
-+			logmsg = "Still healthy";
-+		else
-+			logmsg = "Back healthy";
-+		vt->backend->healthy = 1;
-+	} else {
-+		if (vt->backend->healthy)
-+			logmsg = "Went sick";
-+		else
-+			logmsg = "Still sick";
-+		vt->backend->healthy = 0;
-+	}
-+	VSL(SLT_Backend_health, 0, "%s %s %s %u %u %u %.6f %.6f %s",
-+	    vt->backend->vcl_name, logmsg, bits,
-+	    vt->good, vt->probe.threshold, vt->probe.window,
-+	    vt->last, vt->avg, vt->resp_buf);
-+}
-+
-+/*--------------------------------------------------------------------
-+ * One thread per backend to be poked.
-+ */
-+
-+static void *
-+vbp_wrk_poll_backend(void *priv)
-+{
-+	struct vbp_target *vt;
-+	unsigned u;
-+
- 	THR_SetName("backend poll");
+@@ -564,7 +564,7 @@
+ 	    qp->nqueue > qp->lqueue)) {	/* not getting better since last */
+ 		if (qp->nthr >= nthr_max) {
+ 			VSL_stats->n_wrk_max++;
+-		} else if (pthread_create(&tp, NULL, wrk_thread, qp)) {
++		} else if (pthread_create(&tp, tp_attr, wrk_thread, qp)) {
+ 			VSL(SLT_Debug, 0, "Create worker thread failed %d %s",
+ 			    errno, strerror(errno));
+ 			VSL_stats->n_wrk_failed++;
+@@ -595,17 +595,27 @@
+ wrk_herder_thread(void *priv)
+ {
+ 	unsigned u, w;
++	pthread_attr_t tp_attr; 
  
- 	CAST_OBJ_NOTNULL(vt, priv, VBP_TARGET_MAGIC);
-@@ -272,59 +336,25 @@
- 	if (vt->probe.threshold == 0)
- 		vt->probe.threshold = 3;
- 
-+	if (vt->probe.threshold == ~0U)
-+		vt->probe.initial = vt->probe.threshold - 1;
++	/* Set the stacksize for worker threads */ 
++	AZ(pthread_attr_init(&tp_attr));
 +
-+	if (vt->probe.initial > vt->probe.threshold)
-+		vt->probe.initial = vt->probe.threshold;
+ 	THR_SetName("wrk_herder");
+ 	(void)priv;
+ 	while (1) {
+ 		for (u = 0 ; u < nwq; u++) {
++			if (params->wthread_stacksize != UINT_MAX)
++				AZ(pthread_attr_setstacksize(&tp_attr,
++				    params->wthread_stacksize)); 
 +
- 	printf("Probe(\"%s\", %g, %g)\n",
--	    vt->req,
--	    vt->probe.timeout,
--	    vt->probe.interval);
-+	    vt->req, vt->probe.timeout, vt->probe.interval);
- 
--	/*lint -e{525} indent */
-+	for (u = 0; u < vt->probe.initial; u++) {
-+		vbp_start_poke(vt);
-+		vt->happy |= 1;
-+		vbp_has_poked(vt);
-+	}
++			wrk_breed_flock(wq[u], &tp_attr);
 +
- 	while (!vt->stop) {
--#define BITMAP(n, c, t, b)	vt->n <<= 1;
--#include "cache_backend_poll.h"
--#undef BITMAP
--		vt->last = 0;
--		vt->resp_buf[0] = '\0';
-+		vbp_start_poke(vt);
- 		vbp_poke(vt);
--
--		/* Calculate exponential average */
--		if (vt->happy & 1) {
--			if (vt->rate < AVG_RATE)
--				vt->rate += 1.0;
--			vt->avg += (vt->last - vt->avg) / vt->rate;
--		}
--
--		i = 0;
--#define BITMAP(n, c, t, b)	bits[i++] = (vt->n & 1) ? c : '-';
--#include "cache_backend_poll.h"
--#undef BITMAP
--		bits[i] = '\0';
--
--		u = vt->happy;
--		for (i = j = 0; i < vt->probe.window; i++) {
--			if (u & 1)
--				j++;
--			u >>= 1;
--		}
--		vt->good = j;
--
--		if (vt->good >= vt->probe.threshold) {
--			if (vt->backend->healthy)
--				logmsg = "Still healthy";
--			else
--				logmsg = "Back healthy";
--			vt->backend->healthy = 1;
--		} else {
--			if (vt->backend->healthy)
--				logmsg = "Went sick";
--			else
--				logmsg = "Still sick";
--			vt->backend->healthy = 0;
--		}
--		VSL(SLT_Backend_health, 0, "%s %s %s %u %u %u %.6f %.6f %s",
--		    vt->backend->vcl_name, logmsg, bits,
--		    vt->good, vt->probe.threshold, vt->probe.window,
--		    vt->last, vt->avg, vt->resp_buf);
--
-+		vbp_has_poked(vt);
- 		if (!vt->stop)
- 			TIM_sleep(vt->probe.interval);
+ 			/*
+ 			 * Make sure all pools have their minimum complement
+ 			 */
+ 			for (w = 0 ; w < nwq; w++)
+ 				while (wq[w]->nthr < params->wthread_min)
+-					wrk_breed_flock(wq[w]);
++					wrk_breed_flock(wq[w], &tp_attr);
+ 			/*
+ 			 * We cannot avoid getting a mutex, so we have a
+ 			 * bogo mutex just for POSIX_STUPIDITY
+@@ -613,7 +623,6 @@
+ 			Lck_Lock(&herder_mtx);
+ 			Lck_CondWait(&herder_cond, &herder_mtx);
+ 			Lck_Unlock(&herder_mtx);
+-			wrk_breed_flock(wq[u]);
+ 		}
  	}
-Index: bin/varnishd/cache.h
+ }
+Index: bin/varnishd/cache_backend_poll.c
 ===================================================================
---- bin/varnishd/cache.h	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache.h	(.../branches/2.0/varnish-cache)
-@@ -48,6 +48,10 @@
- #include <limits.h>
- #include <unistd.h>
+--- bin/varnishd/cache_backend_poll.c	(.../tags/varnish-2.0.5/varnish-cache)
++++ bin/varnishd/cache_backend_poll.c	(.../branches/2.0/varnish-cache)
+@@ -173,23 +173,6 @@
+ 	}
+ 	vt->good_xmit |= 1;
  
-+#if defined(HAVE_EPOLL_CTL)
-+#include <sys/epoll.h>
-+#endif
-+
- #include "vqueue.h"
- 
- #include "vsb.h"
-@@ -58,8 +62,6 @@
- #include "heritage.h"
- #include "miniobj.h"
- 
--#define HTTP_HDR_MAX_VAL 32
+-	/* And do a shutdown(WR) so we know that the backend got it */
+-	i = shutdown(s, SHUT_WR);
+-	if (i != 0) {
+-		vt->err_shut |= 1;
+-		TCP_close(&s);
+-		return;
+-	}
+-	vt->good_shut |= 1;
 -
- enum {
- 	/* Fields from the first line of HTTP proto */
- 	HTTP_HDR_REQ,
-@@ -283,6 +285,7 @@
+-	/* Check if that took too long time */
+-	t_now = TIM_real();
+-	tmo = (int)round((t_end - t_now) * 1e3);
+-	if (tmo < 0) {
+-		TCP_close(&s);
+-		return;
+-	}
+-
+ 	pfd->fd = s;
+ 	rlen = 0;
+ 	do {
+@@ -236,7 +219,7 @@
  
- 	struct http		http[1];
- 	VTAILQ_ENTRY(object)	list;
-+	VTAILQ_ENTRY(object)	ban_list;
+ 	i = sscanf(vt->resp_buf, "HTTP/%*f %u %s", &resp, buf);
  
- 	VTAILQ_HEAD(, storage)	store;
- 
-@@ -308,6 +311,7 @@
- 
- 	int			restarts;
- 	int			esis;
-+	int			disable_esi;
- 
- 	struct worker		*wrk;
- 
-@@ -376,6 +380,10 @@
- 	unsigned		ihashptr;
- 	unsigned		lhashptr;
- 	const char		**hashptr;
-+
-+#if defined(HAVE_EPOLL_CTL)
-+	struct epoll_event ev;
-+#endif
- };
- 
- 
-@@ -398,6 +406,7 @@
- void vca_close_session(struct sess *sp, const char *why);
- void VCA_Prep(struct sess *sp);
- void VCA_Init(void);
-+extern pthread_t VCA_thread;
- 
- /* cache_backend.c */
- 
-@@ -544,9 +553,13 @@
- void WRW_Sendfile(struct worker *w, int fd, off_t off, unsigned len);
- #endif  /* SENDFILE_WORKS */
- 
-+typedef void *bgthread_t(struct sess *, void *priv);
-+void WRK_BgThread(pthread_t *thr, const char *name, bgthread_t *func, void *priv);
-+
- /* cache_session.c [SES] */
- void SES_Init(void);
- struct sess *SES_New(const struct sockaddr *addr, unsigned len);
-+struct sess *SES_Alloc(const struct sockaddr *addr, unsigned len);
- void SES_Delete(struct sess *sp);
- void SES_RefSrcAddr(struct sess *sp);
- void SES_Charge(struct sess *sp);
-Index: bin/varnishd/cache_pipe.c
-===================================================================
---- bin/varnishd/cache_pipe.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_pipe.c	(.../branches/2.0/varnish-cache)
-@@ -102,8 +102,12 @@
- 	sp->t_resp = TIM_real();
- 
- 	memset(fds, 0, sizeof fds);
-+
-+	TCP_linger(vc->fd, 0);
- 	fds[0].fd = vc->fd;
- 	fds[0].events = POLLIN | POLLERR;
-+
-+	TCP_linger(sp->fd, 0);
- 	fds[1].fd = sp->fd;
- 	fds[1].events = POLLIN | POLLERR;
- 
-Index: bin/varnishd/cache_acceptor.c
-===================================================================
---- bin/varnishd/cache_acceptor.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/cache_acceptor.c	(.../branches/2.0/varnish-cache)
-@@ -65,11 +65,20 @@
- 
- static struct acceptor const *vca_act;
- 
--static pthread_t	vca_thread_acct;
-+pthread_t		VCA_thread;
- static struct timeval	tv_sndtimeo;
- static struct timeval	tv_rcvtimeo;
--static struct linger	linger;
- 
-+/*
-+ * We want to get out of any kind of touble-hit TCP connections as fast
-+ * as absolutely possible, so we set them LINGER enabled with zero timeout,
-+ * so that even if there are outstanding write data on the socket, a close(2)
-+ * will return immediately.
-+ */
-+static const struct linger linger = {
-+	.l_onoff	=	1,
-+};
-+
- static unsigned char	need_sndtimeo, need_rcvtimeo, need_linger, need_test;
- 
- int vca_pipes[2];
-@@ -106,13 +115,17 @@
- 	need_test = 0;
+-	if (i == 2 && resp == 200)
++	if (i == 2 && resp == vt->probe.exp_status)
+ 		vt->happy |= 1;
  }
  
-+/*--------------------------------------------------------------------
-+ * Called once the workerthread gets hold of the session, to do setup
-+ * setup overhead, we don't want to bother the acceptor thread with.
-+ */
-+
- void
- VCA_Prep(struct sess *sp)
- {
- 	char addr[TCP_ADDRBUFSIZE];
- 	char port[TCP_PORTBUFSIZE];
+@@ -335,6 +318,8 @@
+ 		vt->probe.window = 8;
+ 	if (vt->probe.threshold == 0)
+ 		vt->probe.threshold = 3;
++	if (vt->probe.exp_status == 0)
++		vt->probe.exp_status = 200;
  
--
- 	TCP_name(sp->sockaddr, sp->sockaddrlen,
- 	    addr, sizeof addr, port, sizeof port);
- 	sp->addr = WS_Dup(sp->ws, addr);
-@@ -239,11 +252,15 @@
- 				continue;
- 			}
- 			sp = SES_New(addr, l);
--			XXXAN(sp);
--
-+			if (sp == NULL) {
-+				AZ(close(i));
-+				VSL_stats->client_drop++;
-+				continue;
-+			}
- 			sp->fd = i;
- 			sp->id = i;
- 			sp->t_open = now;
-+			sp->t_end = now;
- 			sp->mylsock = ls;
- 
- 			sp->step = STP_FIRST;
-@@ -330,7 +347,7 @@
- 	if (vca_act->pass == NULL)
- 		AZ(pipe(vca_pipes));
- 	vca_act->init();
--	AZ(pthread_create(&vca_thread_acct, NULL, vca_acct, NULL));
-+	AZ(pthread_create(&VCA_thread, NULL, vca_acct, NULL));
+ 	if (vt->probe.threshold == ~0U)
+ 		vt->probe.initial = vt->probe.threshold - 1;
+Index: bin/varnishd/cache_backend_poll.h
+===================================================================
+--- bin/varnishd/cache_backend_poll.h	(.../tags/varnish-2.0.5/varnish-cache)
++++ bin/varnishd/cache_backend_poll.h	(.../branches/2.0/varnish-cache)
+@@ -33,8 +33,6 @@
+ BITMAP(good_ipv6, '6', "Good IPv6", 0)
+ BITMAP( err_xmit, 'x', "Error Xmit", 0)
+ BITMAP(good_xmit, 'X', "Good Xmit", 0)
+-BITMAP( err_shut, 's', "Error Shut", 0)
+-BITMAP(good_shut, 'S', "Good Shut", 0)
+ BITMAP( err_recv, 'r', "Error Recv", 0)
+ BITMAP(good_recv, 'R', "Good Recv", 0)
+ BITMAP(happy,     'H', "Happy", 1)
+Index: bin/varnishd/cache_acceptor.c
+===================================================================
+--- bin/varnishd/cache_acceptor.c	(.../tags/varnish-2.0.5/varnish-cache)
++++ bin/varnishd/cache_acceptor.c	(.../branches/2.0/varnish-cache)
+@@ -351,16 +351,46 @@
  	VSL(SLT_Debug, 0, "Acceptor is %s", vca_act->name);
  }
  
-Index: bin/varnishd/shmlog.c
-===================================================================
---- bin/varnishd/shmlog.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/shmlog.c	(.../branches/2.0/varnish-cache)
-@@ -71,16 +71,19 @@
- vsl_wrap(void)
- {
- 
-+	assert(loghead->magic == SHMLOGHEAD_MAGIC);
- 	*logstart = SLT_ENDMARKER;
- 	logstart[loghead->ptr] = SLT_WRAPMARKER;
- 	loghead->ptr = 0;
- 	VSL_stats->shm_cycles++;
-+	assert(loghead->magic == SHMLOGHEAD_MAGIC);
- }
- 
- static void
- vsl_hdr(enum shmlogtag tag, unsigned char *p, unsigned len, unsigned id)
- {
- 
-+	assert(loghead->magic == SHMLOGHEAD_MAGIC);
- 	assert(len < 0x10000);
- 	assert(id < 0x10000);
- 	p[__SHMLOG_LEN_HIGH] = (len >> 8) & 0xff;
-@@ -280,13 +283,18 @@
- void
- VSL_Panic(int *len, char **ptr)
- {
-+	static char a[1] = { '\0' }; 
- 
- 	AN(len);
- 	AN(ptr);
--	assert(loghead->magic == SHMLOGHEAD_MAGIC);
--	assert(loghead->hdrsize == sizeof *loghead);
--	*len = sizeof(loghead->panicstr);
--	*ptr = loghead->panicstr;
-+	if (loghead->magic == SHMLOGHEAD_MAGIC) {
-+		assert(loghead->hdrsize == sizeof *loghead);
-+		*len = sizeof(loghead->panicstr);
-+		*ptr = loghead->panicstr;
-+	} else {
-+		*len = 0;
-+		*ptr = a;
++/*--------------------------------------------------------------------*/
++
++static void
++ccf_listen_address(struct cli *cli, const char * const *av, void *priv)
++{
++	struct listen_sock *ls;
++	char h[32], p[32];
++
++	(void)cli;
++	(void)av;
++	(void)priv;
++	VTAILQ_FOREACH(ls, &heritage.socks, list) {
++		if (ls->sock < 0)
++			continue;
++		TCP_myname(ls->sock, h, sizeof h, p, sizeof p);
++		cli_out(cli, "%s %s\n", h, p);
 +	}
++}
++
++/*--------------------------------------------------------------------*/
++
+ static struct cli_proto vca_cmds[] = {
+ 	{ CLI_SERVER_START,	ccf_start },
+ 	{ NULL }
+ };
+ 
++static struct cli_proto vca_debug_cmds[] = {
++	{ "debug.listen_address",
++	    "debug.listen_address",
++	    "Report the actual listen address\n", 0, 0,
++	    ccf_listen_address, NULL },
++	{ NULL }
++};
++
+ void
+ VCA_Init(void)
+ {
+ 
+ 	CLI_AddFuncs(MASTER_CLI, vca_cmds);
++	CLI_AddFuncs(DEBUG_CLI, vca_debug_cmds);
  }
  
- /*--------------------------------------------------------------------*/
-Index: bin/varnishd/mgt_child.c
-===================================================================
---- bin/varnishd/mgt_child.c	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/mgt_child.c	(.../branches/2.0/varnish-cache)
-@@ -236,7 +236,7 @@
- 	unsigned u;
- 	char *p;
- 	struct vev *e;
--	int i, cp[2];
-+	int i, j, cp[2];
- 
- 	if (child_state != CH_STOPPED && child_state != CH_DIED)
- 		return;
-@@ -304,7 +304,8 @@
- 		/* Close anything we shouldn't know about */
- 		closelog();
- 		printf("Closed fds:");
--		for (i = STDERR_FILENO + 1; i < getdtablesize(); i++) {
-+		j = getdtablesize();
-+		for (i = STDERR_FILENO + 1; i < j; i++) {
- 			if (vbit_test(fd_map, i))
- 				continue;
- 			if (close(i) == 0)
-@@ -345,7 +346,6 @@
- 	e->callback = child_listener;
- 	AZ(vev_add(mgt_evb, e));
- 	ev_listen = e;
--
- 	AZ(ev_poker);
- 	if (params->ping_interval > 0) {
- 		e = vev_new();
-@@ -362,11 +362,10 @@
- 	if (mgt_push_vcls_and_start(&u, &p)) {
- 		REPORT(LOG_ERR, "Pushing vcls failed: %s", p);
- 		free(p);
--		/* Pick up any stuff lingering on stdout/stderr */
--		(void)child_listener(NULL, EV_RD);
--		exit(2);
--	}
--	child_state = CH_RUNNING;
-+		child_state = CH_RUNNING;
-+		mgt_stop_child();
-+	} else
-+		child_state = CH_RUNNING;
- }
- 
- /*--------------------------------------------------------------------*/
+ void
 Index: bin/varnishd/heritage.h
 ===================================================================
---- bin/varnishd/heritage.h	(.../tags/varnish-2.0.4/varnish-cache)
+--- bin/varnishd/heritage.h	(.../tags/varnish-2.0.5/varnish-cache)
 +++ bin/varnishd/heritage.h	(.../branches/2.0/varnish-cache)
-@@ -82,6 +82,9 @@
- 	/* TTL used for synthesized error pages */
- 	unsigned		err_ttl;
+@@ -94,6 +94,7 @@
+ 	unsigned		wthread_add_delay;
+ 	unsigned		wthread_fail_delay;
+ 	unsigned		wthread_purge_delay;
++	unsigned		wthread_stacksize;
  
-+	/* Maximum concurrent sessions */
-+	unsigned		max_sess;
-+
- 	/* Worker threads and pool */
- 	unsigned		wthread_min;
- 	unsigned		wthread_max;
-Index: bin/varnishd/common.h
-===================================================================
---- bin/varnishd/common.h	(.../tags/varnish-2.0.4/varnish-cache)
-+++ bin/varnishd/common.h	(.../branches/2.0/varnish-cache)
-@@ -42,6 +42,10 @@
- void VSL_MgtInit(const char *fn, unsigned size);
- extern struct varnish_stats *VSL_stats;
+ 	unsigned		overflow_max;
  
-+/* varnishd.c */
-+struct vsb;
-+int Symbol_Lookup(struct vsb *vsb, void *ptr);
-+
- #define TRUST_ME(ptr)	((void*)(uintptr_t)(ptr))
- 
- /* Really belongs in mgt.h, but storage_file chokes on both */
 Index: man/vcl.7so
 ===================================================================
---- man/vcl.7so	(.../tags/varnish-2.0.4/varnish-cache)
+--- man/vcl.7so	(.../tags/varnish-2.0.5/varnish-cache)
 +++ man/vcl.7so	(.../branches/2.0/varnish-cache)
-@@ -93,6 +93,11 @@
- }
- .Ed
+@@ -96,7 +96,6 @@
+ To avoid overloading backend servers,
+ .Fa .max_connections
+ can be set to limit the maximum number of concurrent backend connections.
+-.Ed
  .Pp
-+To avoid overloading backend servers,
-+.Fa .max_connections
-+can be set to limit the maximum number of concurrent backend connections.
-+.Ed
-+.Pp
  The timeout parameters can be overridden in the backend declaration.
  The timeout parameters are
- .Fa .connect_timeout
-@@ -570,6 +575,9 @@
- .It Va obj.lastuse
- The approximate time elapsed since the object was last requests, in
- seconds.
-+.It Va obj.hits
-+The approximate number of times the object has been delivered. A value of 0
-+indicates a cache miss.
- .El
- .Pp
- The following variables are available while determining the hash key
+@@ -359,8 +358,8 @@
+ .\" vcl_hash
+ .It Cm vcl_hash
+ Use
+-.Cm req.hash += req.http.Set-Cookie
+-or similar to include the Set-Cookie HTTP header in the hash string.
++.Cm req.hash += req.http.Cookie
++or similar to include the Cookie HTTP header in the hash string.
+ The
+ .Cm vcl_hash
+ subroutine may terminate with one of the following keywords:
+@@ -688,7 +687,7 @@
+ 
+ sub vcl_fetch {
+     if (obj.http.Set-Cookie) {
+-        insert;
++        deliver;
+     }
+ }
+ .Ed
