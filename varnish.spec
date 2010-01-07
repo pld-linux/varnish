@@ -34,6 +34,7 @@ Requires(pre):	/usr/sbin/useradd
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	gcc
 Requires:	glibc-devel
+Requires:	rc-scripts >= 0.4.1.26
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_localstatedir	/var/run
