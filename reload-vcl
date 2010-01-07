@@ -6,6 +6,11 @@
 # Stig Sandbeck Mathisen <ssm@debian.org>
 # Elan Ruusamäe <glen@pld-linux.org>
 
+if [ -z "$INIT_COL" ]; then
+	# if invoked directly, load rc-scripts functions
+	. /etc/rc.d/init.d/functions
+fi
+
 # Settings
 defaults=/etc/sysconfig/varnish
 
@@ -15,7 +20,6 @@ date=/bin/date
 mktemp=/bin/mktemp
 
 # Messages
-# msg_no_varnishadm: varnishadm
 msg_no_varnishadm="Error: Cannot execute %s\n"
 msg_no_management="Error: \$DAEMON_OPTS must contain '-T hostname:port'\n"
 # msg_defaults_not_readable: defaults
@@ -35,48 +39,44 @@ msg_use_failed="Error: vcl.use %s failed\n"
 
 # Generate a label, prefixed with the caller's username, from the
 # kernel random uuid generator, fallback to timestamp
-if [ -f /proc/sys/kernel/random/uuid ]
-then
-    read uuid < /proc/sys/kernel/random/uuid
-    vcl_label="${LOGNAME}${LOGNAME:+:}${uuid}"
+if [ -f /proc/sys/kernel/random/uuid ]; then
+	read uuid < /proc/sys/kernel/random/uuid
+	vcl_label="${LOGNAME}${LOGNAME:+:}${uuid}"
 else
-    vcl_label="$($date +${LOGNAME}${LOGNAME:+:}%s.%N)"
+	vcl_label="$($date +${LOGNAME}${LOGNAME:+:}%s.%N)"
 fi
 
 # Load defaults file
-if [ -f "$defaults" ]
-then
-    if [ -r "$defaults" ]
-    then
-	. "$defaults"
-    else
-	printf >&2 "$msg_defaults_not_readable" $defaults
-	exit 1
-    fi
+if [ -f "$defaults" ]; then
+	if [ -r "$defaults" ]; then
+		. "$defaults"
+	else
+		printf >&2 "$msg_defaults_not_readable" $defaults
+		exit 1
+	fi
 else
-    printf >&2 "$msg_defaults_not_there" $defaults
-    exit 1
+	printf >&2 "$msg_defaults_not_there" $defaults
+	exit 1
 fi
 
 # parse command line arguments
-while getopts hcq flag
-do
-    case $flag in
+while getopts hcq flag; do
+	case $flag in
 	h)
-	    printf >&2 "$msg_usage"
-	    exit 0
-	    ;;
+		printf >&2 "$msg_usage"
+		exit 0
+		;;
 	c)
-	    compile_only=1
-	    ;;
+		compile_only=1
+		;;
 	q)
-	    quiet=1
-	    ;;
+		quiet=1
+		;;
 	*)
-	    printf >&2 "$msg_usage\n"
-	    exit 1
-	    ;;
-    esac
+		printf >&2 "$msg_usage\n"
+		exit 1
+		;;
+	esac
 done
 
 vcl_file=${VARNISH_VCL_CONF}
@@ -86,38 +86,34 @@ mgmt_interface=${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT}
 # Extract the -f and the -T option, and (try to) ensure that the
 # management interface is on the form hostname:address
 OPTIND=1
-while getopts a:b:dFf:g:h:l:n:P:p:s:T:t:u:Vw: flag $DAEMON_OPTS
-do
-    case $flag in
+while getopts a:b:dFf:g:h:l:n:P:p:s:T:t:u:Vw: flag $DAEMON_OPTS; do
+	case $flag in
 	f)
-	    if [ -f "$OPTARG" ]; then
+		if [ -f "$OPTARG" ]; then
 		vcl_file="$OPTARG"
-	    fi
-	    ;;
+		fi
+		;;
 	T)
-	    if [ -n "$OPTARG" -a "$OPTARG" != "${OPTARG%%:*}" ]
+		if [ -n "$OPTARG" -a "$OPTARG" != "${OPTARG%%:*}" ]
 		then
 		mgmt_interface="$OPTARG"
-	    fi
-	    ;;
-    esac
+		fi
+		;;
+	esac
 done
 
 # Sanity checks
-if [ ! -x "$varnishadm" ]
-then
+if [ ! -x "$varnishadm" ]; then
     printf >&2 "$msg_no_varnishadm" $varnishadm
     exit 1
 fi
 
-if [ -z "$mgmt_interface" ]
-then
+if [ -z "$mgmt_interface" ]; then
     printf >&2 "$msg_no_management"
     exit 1
 fi
 
-if [ -z "$vcl_file" ]
-then
+if [ -z "$vcl_file" ]; then
     printf >&2 "$msg_no_vcl"
     exit 1
 fi
@@ -125,29 +121,25 @@ fi
 logfile=$($mktemp -t $vcl_labelXXXXXX)
 
 # Compile and maybe reload
-if $varnishadm -T $mgmt_interface vcl.load $vcl_label $vcl_file
-then
-    if [ -n "$compile_only" ]
-    then
-	printf "$msg_compile_only" $varnishadm $mgmt_interface $vcl_label
-    else
-	if $varnishadm -T $mgmt_interface vcl.use $vcl_label
-	then
-	    printf "$msg_use_ok" $vcl_label
+if $varnishadm -T $mgmt_interface vcl.load $vcl_label $vcl_file; then
+	if [ -n "$compile_only" ]; then
+		printf "$msg_compile_only" $varnishadm $mgmt_interface $vcl_label
 	else
-	    printf "$msg_use_failed" $vcl_label
-	    exitstatus=1
+		if $varnishadm -T $mgmt_interface vcl.use $vcl_label; then
+			printf "$msg_use_ok" $vcl_label
+		else
+			printf "$msg_use_failed" $vcl_label
+			exitstatus=1
+		fi
 	fi
-    fi
 else
-    printf "$msg_compile_failed" $vcl_label $vcl_file
-    exitstatus=1
+	printf "$msg_compile_failed" $vcl_label $vcl_file
+	exitstatus=1
 fi | grep -v "^$" > $logfile
 
 # Blather
-if [ -z "${quiet}" -o -n "$exitstatus" ]
-then
-    cat >&2 $logfile
+if [ -z "${quiet}" -o -n "$exitstatus" ]; then
+	cat >&2 $logfile
 fi
 
 # Cleanup
