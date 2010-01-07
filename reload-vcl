@@ -19,24 +19,6 @@ varnishadm=/usr/bin/varnishadm
 date=/bin/date
 mktemp=/bin/mktemp
 
-# Messages
-msg_no_varnishadm="Error: Cannot execute %s\n"
-msg_no_management="Error: \$DAEMON_OPTS must contain '-T hostname:port'\n"
-# msg_defaults_not_readable: defaults
-msg_defaults_not_readable="Error: %s is not readable\n"
-# msg_defaults_not_there: defaults
-msg_defaults_not_there="Error: %s does not exist\n"
-msg_no_vcl="Error: No VCL file used, nothing to reload\n"
-msg_usage="Usage: $0 [-h][-c][-q]\n\t-h\tdisplay help\n\t-q\tquiet\n\t-c\tcompile only, do not reload\n"
-# msg_compile_only: varnishadm, mgmt_interface, vcl_label
-msg_compile_only="To activate, run:\n\t%s -T %s \\\\\n\tvcl.use %s\n"
-# msg_compile_failed: vcl_label, vcl_file
-msg_compile_failed="Error: vcl.load %s %s failed"
-# msg_use_ok: vcl_label
-msg_use_ok="VCL reloaded, active label is %s\n"
-# msg_use_failed: vcl_label
-msg_use_failed="Error: vcl.use %s failed\n"
-
 # Generate a label, prefixed with the caller's username, from the
 # kernel random uuid generator, fallback to timestamp
 if [ -f /proc/sys/kernel/random/uuid ]; then
@@ -51,11 +33,11 @@ if [ -f "$defaults" ]; then
 	if [ -r "$defaults" ]; then
 		. "$defaults"
 	else
-		printf >&2 "$msg_defaults_not_readable" $defaults
+		nls "Error: %s is not readable\n" $defaults
 		exit 1
 	fi
 else
-	printf >&2 "$msg_defaults_not_there" $defaults
+	nls "Error: %s does not exist\n" $defaults
 	exit 1
 fi
 
@@ -63,7 +45,7 @@ fi
 while getopts hcq flag; do
 	case $flag in
 	h)
-		printf >&2 "$msg_usage"
+		nls "Usage: $0 [-h][-c][-q]\n\t-h\tdisplay help\n\t-q\tquiet\n\t-c\tcompile only, do not reload\n"
 		exit 0
 		;;
 	c)
@@ -73,7 +55,7 @@ while getopts hcq flag; do
 		quiet=1
 		;;
 	*)
-		printf >&2 "$msg_usage\n"
+		nls "Usage: $0 [-h][-c][-q]\n\t-h\tdisplay help\n\t-q\tquiet\n\t-c\tcompile only, do not reload\n"
 		exit 1
 		;;
 	esac
@@ -104,17 +86,17 @@ done
 
 # Sanity checks
 if [ ! -x "$varnishadm" ]; then
-    printf >&2 "$msg_no_varnishadm" $varnishadm
+	nls "Error: Cannot execute %s\n" $varnishadm
     exit 1
 fi
 
 if [ -z "$mgmt_interface" ]; then
-    printf >&2 "$msg_no_management"
+	nls "Error: \$DAEMON_OPTS must contain '-T hostname:port'\n"
     exit 1
 fi
 
 if [ -z "$vcl_file" ]; then
-    printf >&2 "$msg_no_vcl"
+	nls "Error: No VCL file used, nothing to reload\n"
     exit 1
 fi
 
@@ -123,17 +105,17 @@ logfile=$($mktemp -t $vcl_labelXXXXXX)
 # Compile and maybe reload
 if $varnishadm -T $mgmt_interface vcl.load $vcl_label $vcl_file; then
 	if [ -n "$compile_only" ]; then
-		printf "$msg_compile_only" $varnishadm $mgmt_interface $vcl_label
+		nls "To activate, run:\n\t%s -T %s \\\\\n\tvcl.use %s\n" $varnishadm $mgmt_interface $vcl_label
 	else
 		if $varnishadm -T $mgmt_interface vcl.use $vcl_label; then
-			printf "$msg_use_ok" $vcl_label
+			nls "VCL reloaded, active label is %s\n" $vcl_label
 		else
-			printf "$msg_use_failed" $vcl_label
+			nls "Error: vcl.use %s failed\n" $vcl_label
 			exitstatus=1
 		fi
 	fi
 else
-	printf "$msg_compile_failed" $vcl_label $vcl_file
+	nls "Error: vcl.load %s %s failed" $vcl_label $vcl_file
 	exitstatus=1
 fi | grep -v "^$" > $logfile
 
