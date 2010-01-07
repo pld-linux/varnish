@@ -1,17 +1,18 @@
 #!/bin/sh
 
 # reload-varnish: Script to reload varnishd from VCL defined in
-# /etc/default/varnish.
+# /etc/sysconfig/varnish.
 #
 # Stig Sandbeck Mathisen <ssm@debian.org>
+# Elan Ruusamäe <glen@pld-linux.org>
 
 # Settings
-defaults=/etc/default/varnish
+defaults=/etc/sysconfig/varnish
 
 # Paths
 varnishadm=/usr/bin/varnishadm
 date=/bin/date
-tempfile=/bin/tempfile
+mktemp=/bin/mktemp
 
 # Messages
 # msg_no_varnishadm: varnishadm
@@ -78,6 +79,9 @@ do
     esac
 done
 
+vcl_file=${VARNISH_VCL_CONF}
+mgmt_interface=${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT}
+
 # Parse $DAEMON_OPTS (options must be kept in sync with varnishd).
 # Extract the -f and the -T option, and (try to) ensure that the
 # management interface is on the form hostname:address
@@ -118,7 +122,7 @@ then
     exit 1
 fi
 
-logfile=$($tempfile -n /tmp/$vcl_label)
+logfile=$($mktemp -t $vcl_labelXXXXXX)
 
 # Compile and maybe reload
 if $varnishadm -T $mgmt_interface vcl.load $vcl_label $vcl_file
