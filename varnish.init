@@ -29,6 +29,69 @@ fi
 
 PIDFILE=/var/run/varnishd.pid
 
+# Generate a label, prefixed with the caller's username, from the
+# kernel random uuid generator, fallback to timestamp
+if [ -f /proc/sys/kernel/random/uuid ]; then
+	read uuid < /proc/sys/kernel/random/uuid
+	vcl_label="${LOGNAME}${LOGNAME:+:}${uuid}"
+else
+	vcl_label="$($date +${LOGNAME}${LOGNAME:+:}%s.%N)"
+fi
+
+# for simplier code
+vcl_load() {
+	/usr/bin/varnishadm -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} vcl.load "$@"
+}
+vcl_use() {
+	/usr/bin/varnishadm -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} vcl.use "$@"
+}
+vcl_discard() {
+	/usr/bin/varnishadm -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} vcl.discard "$@"
+}
+
+# configtest itself
+# must return non-zero if check failed
+# output is discarded if checkconfig is ran without details
+configtest() {
+	local rc=0
+	if [ -f /var/lock/subsys/varnish ]; then
+		vcl_load $vcl_label ${VARNISH_VCL_CONF}; rc=?
+		vcl_discard $vcl_label
+	else
+		echo "Varnish is not running, config cannot be tested"
+	fi
+	return $rc
+}
+
+# wrapper for configtest
+checkconfig() {
+	local details=${1:-0}
+
+	if [ $details = 1 ]; then
+		# run config test and display report (status action)
+		show "Checking %s configuration" "Varnish HTTP accelerator"; busy
+		local out
+		out=$(configtest 2>&1)
+		RETVAL=$?
+		if [ $RETVAL = 0 ]; then
+			ok
+		else
+			fail
+		fi
+		[ "$out" ] && echo >&2 "$out"
+	else
+		# run config test and abort with nice message if failed
+		# (for actions checking status before action).
+		configtest >/dev/null 2>&1
+		RETVAL=$?
+		if [ $RETVAL != 0 ]; then
+			show "Checking %s configuration" "Varnish HTTP accelerator"; fail
+			nls 'Configuration test failed. See details with %s "checkconfig"' $0
+			exit $RETVAL
+		fi
+	fi
+}
+
 start() {
 	if [ -f /var/lock/subsys/varnish ]; then
 		msg_already_running "Varnish HTTP accelerator"
@@ -85,6 +148,34 @@ condrestart() {
 	start
 }
 
+restart() {
+	if [ -f /var/lock/subsys/varnish ]; then
+		# checkconfig needs running varnish
+		checkconfig
+	fi
+  	stop
+	start
+}
+
+reload() {
+	if [ ! -f /var/lock/subsys/varnish ]; then
+		msg_not_running "Varnish HTTP accelerator"
+		RETVAL=7
+		return
+	fi
+
+	checkconfig
+	msg_reloading "Varnish HTTP accelerator"; busy
+	out=$(vcl_load $vcl_label ${VARNISH_VCL_CONF} && vcl_use $vcl_label 2>&1)
+	RETVAL=$?
+	if [ $RETVAL = 0 ]; then
+		ok
+	else
+		echo >&2 "$out"
+		fail
+	fi
+}
+
 RETVAL=0
 # See how we were called.
 case "$1" in
@@ -95,21 +186,23 @@ case "$1" in
   	stop
 	;;
   restart)
-  	stop
-	start
+  	restart
 	;;
   try-restart)
 	condrestart 0
 	;;
-  force-reload)
-	condrestart 7
+  reload|force-reload)
+  	reload
+	;;
+  checkconfig|configtest)
+	checkconfig 1
 	;;
   status)
 	status --pidfile $PIDFILE varnishd
 	RETVAL=$?
 	;;
   *)
-	msg_usage "$0 {start|stop|restart|try-restart|force-reload|status}"
+	msg_usage "$0 {start|stop|restart|try-restart|reload|force-reload|checkconfig|status}"
 	exit 3
 esac
 
