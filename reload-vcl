@@ -6,39 +6,32 @@
 # Stig Sandbeck Mathisen <ssm@debian.org>
 # Elan Ruusamäe <glen@pld-linux.org>
 
-if [ -z "$INIT_COL" ]; then
-	# if invoked directly, load rc-scripts functions
-	. /etc/rc.d/init.d/functions
-fi
-
-# Settings
-defaults=/etc/sysconfig/varnish
-
 # Paths
 varnishadm=/usr/bin/varnishadm
 date=/bin/date
 mktemp=/bin/mktemp
 
-# Generate a label, prefixed with the caller's username, from the
-# kernel random uuid generator, fallback to timestamp
-if [ -f /proc/sys/kernel/random/uuid ]; then
-	read uuid < /proc/sys/kernel/random/uuid
-	vcl_label="${LOGNAME}${LOGNAME:+:}${uuid}"
-else
-	vcl_label="$($date +${LOGNAME}${LOGNAME:+:}%s.%N)"
-fi
+if [ -z "$INIT_COL" ]; then
+	# if invoked directly, load rc-scripts functions
+	. /etc/rc.d/init.d/functions
 
-# Load defaults file
-if [ -f "$defaults" ]; then
-	if [ -r "$defaults" ]; then
-		. "$defaults"
+	# Settings
+	defaults=/etc/sysconfig/varnish
+
+	# Load defaults file
+	if [ -f "$defaults" ]; then
+		if [ -r "$defaults" ]; then
+			. "$defaults"
+		else
+			nls "Error: %s is not readable\n" $defaults
+			exit 1
+		fi
 	else
-		nls "Error: %s is not readable\n" $defaults
+		nls "Error: %s does not exist\n" $defaults
 		exit 1
 	fi
 else
-	nls "Error: %s does not exist\n" $defaults
-	exit 1
+	standalone=0
 fi
 
 # parse command line arguments
