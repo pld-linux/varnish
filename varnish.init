@@ -54,9 +54,11 @@ vcl_discard() {
 # output is discarded if checkconfig is ran without details
 configtest() {
 	local rc=0
+
 	if [ -f /var/lock/subsys/varnish ]; then
 		vcl_load $vcl_label ${VARNISH_VCL_CONF}; rc=$?
-		vcl_discard $vcl_label
+		# discard only if above succeeded
+		[ $rc = 0 ] && vcl_discard $vcl_label || rc=$?
 	else
 		echo "Varnish is not running, config cannot be tested"
 	fi
