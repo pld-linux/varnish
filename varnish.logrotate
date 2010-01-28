@@ -5,7 +5,7 @@
 	sharedscripts
 	olddir /var/log/archive/varnish
 	postrotate
-		/sbin/service varnishlog flush-logs
+		/sbin/service varnishlog flush-logs > /dev/null
 	endscript
 }
 
@@ -16,6 +16,6 @@
 	sharedscripts
 	olddir /var/log/archive/varnish
 	postrotate
-		/sbin/service varnishncsa flush-logs
+		/sbin/service varnishncsa flush-logs > /dev/null
 	endscript
 }
