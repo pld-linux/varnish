@@ -58,7 +58,13 @@ configtest() {
 	if [ -f /var/lock/subsys/varnish ]; then
 		vcl_load $vcl_label ${VARNISH_VCL_CONF}; rc=$?
 		# discard only if above succeeded
-		[ $rc = 0 ] && vcl_discard $vcl_label || rc=$?
+		if [ $rc = 0 ]; then
+			vcl_discard $vcl_label || rc=$?
+		else
+			# this will display a bit more verbose error
+			/usr/sbin/varnishd -C -f ${VARNISH_VCL_CONF} >/dev/null
+		fi
+
 	else
 		echo "Varnish is not running, config cannot be tested"
 	fi
