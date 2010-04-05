@@ -38,15 +38,18 @@ else
 	vcl_label="$($date +${LOGNAME}${LOGNAME:+:}%s.%N)"
 fi
 
+varnishadm() {
+	/usr/bin/varnishadm -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} "$@"
+}
 # for simplier code
 vcl_load() {
-	/usr/bin/varnishadm -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} vcl.load "$@"
+	varnishadm vcl.load "$@"
 }
 vcl_use() {
-	/usr/bin/varnishadm -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} vcl.use "$@"
+	varnishadm vcl.use "$@"
 }
 vcl_discard() {
-	/usr/bin/varnishadm -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} vcl.discard "$@"
+	varnishadm vcl.discard "$@"
 }
 
 # configtest itself
@@ -109,7 +112,7 @@ start() {
 	# default limits
 	SERVICE_LIMITS="${SERVICE_LIMIS:--n $NFILES -l $MEMLOCK}"
 
-	# DAEMON_OPTS is used by the init script.  If you add or remove options, make
+	# DAEMON_OPTS is used by the init script. If you add or remove options, make
 	# sure you update this section, too.
 	DAEMON_OPTS="
 		-a ${VARNISH_LISTEN_ADDRESS}:${VARNISH_LISTEN_PORT}
@@ -161,7 +164,7 @@ restart() {
 		# checkconfig needs running varnish
 		checkconfig
 	fi
-  	stop
+	stop
 	start
 }
 
@@ -205,12 +208,16 @@ case "$1" in
   checkconfig|configtest)
 	checkconfig 1
 	;;
+  varnishadm)
+	shift
+	varnishadm "$@"
+	;;
   status)
 	status --pidfile $PIDFILE varnishd
 	RETVAL=$?
 	;;
   *)
-	msg_usage "$0 {start|stop|restart|try-restart|reload|force-reload|checkconfig|status}"
+	msg_usage "$0 {start|stop|restart|try-restart|reload|force-reload|checkconfig|varnishadm|status}"
 	exit 3
 esac
 
