@@ -29,13 +29,19 @@ fi
 
 PIDFILE=/var/run/varnishd.pid
 
+# import some env from parent process
+if [ -f /proc/$PPID/environ ]; then
+	eval $(tr '\0' '\n' < /proc/$PPID/environ | grep -E '^(USER|SUDO_USER|LOGNAME)')
+	LOGNAME=${SUDO_USER:-${LOGNAME:-$USER}}
+fi
+
 # Generate a label, prefixed with the caller's username, from the
 # kernel random uuid generator, fallback to timestamp
 if [ -f /proc/sys/kernel/random/uuid ]; then
 	read uuid < /proc/sys/kernel/random/uuid
-	vcl_label="${LOGNAME}${LOGNAME:+:}${uuid}"
+	vcl_label="$(date +${LOGNAME}${LOGNAME:+:}%Y-%m-%d:%H.%M:${uuid})"
 else
-	vcl_label="$($date +${LOGNAME}${LOGNAME:+:}%s.%N)"
+	vcl_label="$(date +${LOGNAME}${LOGNAME:+:}%s.%N)"
 fi
 
 varnishadm() {
