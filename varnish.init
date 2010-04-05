@@ -31,7 +31,7 @@ PIDFILE=/var/run/varnishd.pid
 
 # import some env from parent process
 if [ -f /proc/$PPID/environ ]; then
-	eval $(tr '\0' '\n' < /proc/$PPID/environ | grep -E '^(USER|SUDO_USER|LOGNAME)')
+	eval $(tr '\0' '\n' < /proc/$PPID/environ | grep -E '^(USER|SUDO_USER|LOGNAME)=')
 	LOGNAME=${SUDO_USER:-${LOGNAME:-$USER}}
 fi
 
