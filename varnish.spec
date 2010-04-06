@@ -5,7 +5,7 @@ Version:	2.0.6
 Release:	3
 License:	BSD
 Group:		Networking/Daemons/HTTP
-Source0:	http://dl.sourceforge.net/varnish/%{name}-%{version}.tar.gz
+Source0:	http://downloads.sourceforge.net/varnish/%{name}-%{version}.tar.gz
 # Source0-md5:	d91dc21c636db61c69b5e8f061c5bb95
 Source1:	%{name}.init
 Source2:	%{name}log.init
@@ -33,6 +33,7 @@ Requires:	%{name}-libs = %{version}-%{release}
 Requires:	gcc
 Requires:	glibc-devel
 Requires:	rc-scripts >= 0.4.1.26
+Suggests:	vim-syntax-vcl
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_localstatedir	/var/run
