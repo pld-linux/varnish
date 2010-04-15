@@ -3,7 +3,7 @@
 # - some -l missing: /usr/lib64/libvcl.so.1.0.0
 #
 # Conditional build:
-%bcond_with	tests		# build without tests. binds daemon on 127.0.0.1 9080, 9081, 9001 ports
+%bcond_without	tests		# build without tests. binds daemon on 127.0.0.1 9080, 9081, 9001 ports
 
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
