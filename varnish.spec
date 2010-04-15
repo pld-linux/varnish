@@ -1,3 +1,10 @@
+# TODO
+# - make tests use secure dir, not /tmp, see varnish-2.0.6/bin/varnishtest
+# - some -l missing: /usr/lib64/libvcl.so.1.0.0
+#
+# Conditional build:
+%bcond_with	tests		# build without tests. needs http daemon on 127.0.0.1:80
+
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
@@ -104,23 +111,39 @@ export CPPFLAGS="-I/usr/include/ncurses"
 
 %{__make}
 
+%if %{with tests}
+workdir=$(pwd)/workdir
+install -d $workdir
+
+# start varnishd
+LD_LIBRARY_PATH="lib/libvarnish/.libs:lib/libvarnishcompat/.libs:lib/libvarnishapi/.libs:lib/libvcl/.libs" \
+./bin/varnishd/varnishd -b 127.0.0.1:80 -C -n $workdir -P $workdir/pid
+
+%{__make} check \
+	LD_LIBRARY_PATH="../../lib/libvarnish/.libs:../../lib/libvarnishcompat/.libs:../../lib/libvarnishapi/.libs:../../lib/libvcl/.libs"
+
+# kill varnishd
+kill $(cat $workdir/pid)
+%endif
+
 %install
 rm -rf $RPM_BUILD_ROOT
 
 %{__make} install \
+	INSTALL="install -p" \
 	DESTDIR=$RPM_BUILD_ROOT
 
 # make dirs after make install to know which ones needs spec and which ones make install
 install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{logrotate.d,rc.d/init.d,sysconfig},/var/{run,lib}/varnish} \
 	$RPM_BUILD_ROOT/var/log/{archive/,}varnish
 
-install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
-install %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishlog
-install %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishncsa
-install %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
-install %{SOURCE5} $RPM_BUILD_ROOT/etc/sysconfig/varnishncsa
-install %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
-install %{SOURCE7} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
+install -p %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
+install -p %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishlog
+install -p %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishncsa
+cp -a %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
+cp -a %{SOURCE5} $RPM_BUILD_ROOT/etc/sysconfig/varnishncsa
+cp -a %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
+cp -a %{SOURCE7} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -142,7 +165,6 @@ if [ "$1" = "0" ]; then
 	%userremove %{name}
 	%groupremove %{name}
 fi
-
 
 %preun
 if [ "$1" = "0" ]; then
@@ -172,8 +194,8 @@ fi
 %attr(755,root,root) %{_bindir}/varnish*
 %{_mandir}/man1/*
 %{_mandir}/man7/*
-/var/lib/varnish
-/var/run/varnish
+%dir /var/lib/varnish
+%dir /var/run/varnish
 
 %dir %attr(751,root,root) /var/log/varnish
 %dir %attr(750,root,root) /var/log/archive/varnish
