@@ -3,7 +3,7 @@
 # - some -l missing: /usr/lib64/libvcl.so.1.0.0
 #
 # Conditional build:
-%bcond_with	tests		# build without tests. needs http daemon on 127.0.0.1:80
+%bcond_with	tests		# build without tests. binds daemon on 127.0.0.1 9080, 9081, 9001 ports
 
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
@@ -112,18 +112,8 @@ export CPPFLAGS="-I/usr/include/ncurses"
 %{__make}
 
 %if %{with tests}
-workdir=$(pwd)/workdir
-install -d $workdir
-
-# start varnishd
-LD_LIBRARY_PATH="lib/libvarnish/.libs:lib/libvarnishcompat/.libs:lib/libvarnishapi/.libs:lib/libvcl/.libs" \
-./bin/varnishd/varnishd -b 127.0.0.1:80 -C -n $workdir -P $workdir/pid
-
 %{__make} check \
 	LD_LIBRARY_PATH="../../lib/libvarnish/.libs:../../lib/libvarnishcompat/.libs:../../lib/libvarnishapi/.libs:../../lib/libvcl/.libs"
-
-# kill varnishd
-kill $(cat $workdir/pid)
 %endif
 
 %install
