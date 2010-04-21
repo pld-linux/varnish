@@ -105,6 +105,7 @@ export CPPFLAGS="-I/usr/include/ncurses"
 %{__automake}
 %{__autoconf}
 %configure \
+	--with-max-header-fields=128 \
 %ifarch hppa s390 sparc ppc
 	--disable-jemalloc
 %endif
