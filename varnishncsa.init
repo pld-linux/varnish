@@ -41,6 +41,12 @@ start() {
 		opts="$opts -c"
 	fi
 
+	# -b and -c specified together does not work,
+	# however specifing neither of them assumes both are set
+	if is_yes "$LOG_BACKEND" && is_yes "$LOG_CLIENT"; then
+		opts=""
+	fi
+
 	msg_starting "Varnish NCSA logging daemon"
 	daemon --pidfile $pidfile /usr/bin/varnishncsa -a -w $logfile -D -P $pidfile $opts
 	RETVAL=$?
