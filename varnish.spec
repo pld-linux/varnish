@@ -16,13 +16,12 @@ Group:		Networking/Daemons/HTTP
 Source0:	http://downloads.sourceforge.net/varnish/%{name}-%{version}.tar.gz
 # Source0-md5:	d91dc21c636db61c69b5e8f061c5bb95
 Source1:	%{name}.init
-Source2:	%{name}log.init
 Source3:	%{name}ncsa.init
 Source4:	%{name}.sysconfig
 Source5:	%{name}ncsa.sysconfig
 Source6:	%{name}.logrotate
 Source7:	%{name}.conf
-#Patch100:	branch.diff
+Patch100:	branch.diff
 Patch0:		%{name}-build.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
@@ -95,7 +94,7 @@ Statyczna biblioteka varnish.
 
 %prep
 %setup -q
-#%patch100 -p0
+%patch100 -p0
 %patch0 -p1
 
 %build
