@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-svn=http://varnish.projects.linpro.no/svn
+svn=http://varnish-cache.org/svn
 tag=varnish-2.0.6/varnish-cache
 branch=2.0/varnish-cache
 out=branch.diff
