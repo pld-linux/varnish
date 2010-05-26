@@ -1,4 +1,4 @@
-# Revision 4439
+# Revision 4859
 Index: doc/changes-2.0.5-2.0.6.xml
 ===================================================================
 --- doc/changes-2.0.5-2.0.6.xml	(.../tags/varnish-2.0.6/varnish-cache)
@@ -10,3 +10,31 @@ Index: doc/changes-2.0.5-2.0.6.xml
 -  <subsystem>
 +  </subsystem>
  </group>
+Index: bin/varnishtop/varnishtop.c
+===================================================================
+--- bin/varnishtop/varnishtop.c	(.../tags/varnish-2.0.6/varnish-cache)
++++ bin/varnishtop/varnishtop.c	(.../branches/2.0/varnish-cache)
+@@ -273,7 +273,9 @@
+ 		if (tp->count <= 1.0)
+ 			break;
+ 		len = SHMLOG_LEN(tp->rec);
+-		printf("%9.2f %s %*.*s\n", tp->count, VSL_tags[tp->rec[SHMLOG_TAG]], len, len, tp->rec + SHMLOG_DATA);
++		printf("%9.2f %s %*.*s\n",
++		    tp->count, VSL_tags[tp->rec[SHMLOG_TAG]],
++		    len, len, tp->rec_data);
+ 	}
+ }
+ 
+Index: bin/varnishd/cache_center.c
+===================================================================
+--- bin/varnishd/cache_center.c	(.../tags/varnish-2.0.6/varnish-cache)
++++ bin/varnishd/cache_center.c	(.../branches/2.0/varnish-cache)
+@@ -594,7 +594,7 @@
+ 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
+ 	CHECK_OBJ_NOTNULL(sp->vcl, VCL_CONF_MAGIC);
+ 
+-	if (sp->obj == NULL) {
++	if (sp->objhead == NULL) {
+ 		HSH_Prepare(sp, sp->vcl->nhashcount);
+ 		VCL_hash_method(sp);
+ 		assert(sp->handling == VCL_RET_HASH);
