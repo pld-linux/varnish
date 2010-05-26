@@ -1,5 +1,6 @@
 # TODO
 # - make tests use secure dir, not /tmp, see varnish-2.0.6/bin/varnishtest
+# - hungs ac builders: tests/a00009.vtc
 # - some -l missing: /usr/lib64/libvcl.so.1.0.0
 #
 # Conditional build:
@@ -129,7 +130,6 @@ install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{logrotate.d,rc.d/init.d,sysconfi
 	$RPM_BUILD_ROOT/var/log/{archive/,}varnish
 
 install -p %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
-install -p %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishlog
 install -p %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishncsa
 cp -a %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
 cp -a %{SOURCE5} $RPM_BUILD_ROOT/etc/sysconfig/varnishncsa
@@ -141,10 +141,8 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 /sbin/chkconfig --add varnish
-/sbin/chkconfig --add varnishlog
 /sbin/chkconfig --add varnishncsa
 %service varnish restart
-%service varnishlog restart
 %service varnishncsa restart
 
 %pre
@@ -160,10 +158,8 @@ fi
 %preun
 if [ "$1" = "0" ]; then
 	%service -q varnish stop
-	%service -q varnishlog stop
 	%service -q varnishncsa stop
 	/sbin/chkconfig --del varnish
-	/sbin/chkconfig --del varnishlog
 	/sbin/chkconfig --del varnishncsa
 fi
 
@@ -179,7 +175,6 @@ fi
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnishncsa
 %attr(640,root,root) %config(noreplace) %verify(not md5 mtime size) /etc/logrotate.d/varnish
 %attr(754,root,root) /etc/rc.d/init.d/varnish
-%attr(754,root,root) /etc/rc.d/init.d/varnishlog
 %attr(754,root,root) /etc/rc.d/init.d/varnishncsa
 %attr(755,root,root) %{_sbindir}/varnishd
 %attr(755,root,root) %{_bindir}/varnish*
