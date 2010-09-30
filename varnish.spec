@@ -10,7 +10,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	2.0.6
-Release:	4
+Release:	5
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://downloads.sourceforge.net/varnish/%{name}-%{version}.tar.gz
@@ -97,6 +97,7 @@ Statyczna biblioteka varnish.
 %patch100 -p0
 %patch0 -p1
 
+
 %build
 export CPPFLAGS="-I/usr/include/ncurses"
 %{__aclocal}
@@ -109,6 +110,8 @@ export CPPFLAGS="-I/usr/include/ncurses"
 %ifarch hppa s390 sparc ppc
 	--disable-jemalloc
 %endif
+
+%{__sed} -i -e '/CURSES_LIBS = / s,-lcurses,-ltinfo &,' bin/varnish{hist,stat,top}/Makefile
 
 %{__make}
 
