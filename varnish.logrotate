@@ -1,14 +1,3 @@
-# varnishlog
-/var/log/varnish/varnish.log {
-	missingok
-	notifempty
-	sharedscripts
-	olddir /var/log/archive/varnish
-	postrotate
-		/sbin/service varnishlog flush-logs > /dev/null
-	endscript
-}
-
 # varnishncsa log
 /var/log/varnish/access.log {
 	missingok
