@@ -1,27 +1,12 @@
-diff -ru varnish-2.0.2.org/lib/libvarnish/Makefile.am varnish-2.0.2/lib/libvarnish/Makefile.am
---- varnish-2.0.2.org/lib/libvarnish/Makefile.am	2008-11-14 13:24:08.000000000 +0100
-+++ varnish-2.0.2/lib/libvarnish/Makefile.am	2008-11-16 14:30:30.479883978 +0100
-@@ -26,7 +26,8 @@
+--- varnish-2.1.4/lib/libvarnish/Makefile.am~	2010-12-03 14:20:32.000000000 +0200
++++ varnish-2.1.4/lib/libvarnish/Makefile.am	2010-12-03 14:21:04.038837288 +0200
+@@ -31,7 +31,8 @@
  	vss.c \
  	vtmpfile.c
  
--libvarnish_la_LIBADD = ${RT_LIBS} ${NET_LIBS} ${LIBM}
-+libvarnish_la_LIBADD = ${RT_LIBS} ${NET_LIBS} ${LIBM} \
-+		        $(top_builddir)/lib/libvarnishcompat/libvarnishcompat.la
+-libvarnish_la_LIBADD = ${RT_LIBS} ${NET_LIBS} ${LIBM} @PCRE_LIBS@
++libvarnish_la_LIBADD = ${RT_LIBS} ${NET_LIBS} ${LIBM} @PCRE_LIBS@ \
++	$(top_builddir)/lib/libvarnishcompat/libvarnishcompat.la
  
- 
- if ENABLE_TESTS
-diff -ru varnish-2.0.2.org/lib/Makefile.am varnish-2.0.2/lib/Makefile.am
---- varnish-2.0.2.org/lib/Makefile.am	2008-11-14 13:24:08.000000000 +0100
-+++ varnish-2.0.2/lib/Makefile.am	2008-11-16 14:30:50.736859278 +0100
-@@ -1,9 +1,9 @@
- # $Id$
- 
- SUBDIRS = \
-+	libvarnishcompat \
- 	libvarnish \
- 	libvarnishapi \
--	libvarnishcompat \
- 	libvcl \
- 	@JEMALLOC_SUBDIR@
- 
+ DISTCLEANFILES = svn_version.c
+ svn_version.c: FORCE

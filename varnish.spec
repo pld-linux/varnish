@@ -9,19 +9,19 @@
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
-Version:	2.0.6
-Release:	5
+Version:	2.1.4
+Release:	0.1
 License:	BSD
 Group:		Networking/Daemons/HTTP
-Source0:	http://downloads.sourceforge.net/varnish/%{name}-%{version}.tar.gz
-# Source0-md5:	d91dc21c636db61c69b5e8f061c5bb95
+Source0:	http://www.varnish-software.com/sites/default/files/%{name}-%{version}.tar.gz
+# Source0-md5:	e794a37b6fbb786a083c0946103ae103
 Source1:	%{name}.init
 Source3:	%{name}ncsa.init
 Source4:	%{name}.sysconfig
 Source5:	%{name}ncsa.sysconfig
 Source6:	%{name}.logrotate
 Source7:	%{name}.conf
-Patch100:	branch.diff
+#Patch100:	branch.diff
 Patch0:		%{name}-build.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
@@ -94,9 +94,8 @@ Statyczna biblioteka varnish.
 
 %prep
 %setup -q
-%patch100 -p0
+#%patch100 -p0
 %patch0 -p1
-
 
 %build
 export CPPFLAGS="-I/usr/include/ncurses"
