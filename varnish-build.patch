@@ -10,3 +10,15 @@
  
  DISTCLEANFILES = svn_version.c
  svn_version.c: FORCE
+--- varnish-2.1.5/lib/libvcl/Makefile.am~	2011-08-14 01:34:34.000000000 +0300
++++ varnish-2.1.5/lib/libvcl/Makefile.am	2011-08-14 01:34:37.768099966 +0300
+@@ -27,6 +27,9 @@
+ 	vcc_var.c \
+ 	vcc_xref.c
+ 
++libvcl_la_LIBADD = \
++	$(top_builddir)/lib/libvarnish/libvarnish.la
++
+ EXTRA_DIST = \
+ 	vcc_gen_fixed_token.tcl
+ 

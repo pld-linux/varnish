@@ -1,7 +1,6 @@
 # TODO
 # - make tests use secure dir, not /tmp, see varnish-2.0.6/bin/varnishtest
 # - hungs ac builders: tests/a00009.vtc
-# - some -l missing: /usr/lib64/libvcl.so.1.0.0
 
 # Conditional build:
 %bcond_without	tests		# build without tests. binds daemon on 127.0.0.1 9080, 9081, 9001 ports
@@ -45,9 +44,6 @@ Suggests:	vim-syntax-vcl
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_localstatedir	/var/run
-
-# TODO: find reasons http://pastebin.com/ZNq1KDPG
-%define		skip_post_check_so	libvcl.so.1.0.0
 
 %description
 The goal of the Varnish project is to develop a state-of-the-art,
