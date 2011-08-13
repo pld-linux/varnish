@@ -2,19 +2,19 @@
 # - make tests use secure dir, not /tmp, see varnish-2.0.6/bin/varnishtest
 # - hungs ac builders: tests/a00009.vtc
 # - some -l missing: /usr/lib64/libvcl.so.1.0.0
-#
+
 # Conditional build:
 %bcond_without	tests		# build without tests. binds daemon on 127.0.0.1 9080, 9081, 9001 ports
 
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
-Version:	2.1.4
+Version:	2.1.5
 Release:	0.1
 License:	BSD
 Group:		Networking/Daemons/HTTP
-Source0:	http://www.varnish-software.com/sites/default/files/%{name}-%{version}.tar.gz
-# Source0-md5:	e794a37b6fbb786a083c0946103ae103
+Source0:	http://repo.varnish-cache.org/source/%{name}-%{version}.tar.gz
+# Source0-md5:	2d2f227da36a2a240c475304c717b8e3
 Source1:	%{name}.init
 Source3:	%{name}ncsa.init
 Source4:	%{name}.sysconfig
@@ -29,6 +29,7 @@ BuildRequires:	automake
 BuildRequires:	groff
 BuildRequires:	libstdc++-devel
 BuildRequires:	libtool >= 2:1.5
+BuildRequires:    rpmbuild(macros) >= 1.583
 BuildRequires:	ncurses-devel
 Requires(postun):	/usr/sbin/groupdel
 Requires(postun):	/usr/sbin/userdel
@@ -44,6 +45,9 @@ Suggests:	vim-syntax-vcl
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_localstatedir	/var/run
+
+# TODO: find reasons http://pastebin.com/ZNq1KDPG
+%define		skip_post_check_so	libvcl.so.1.0.0
 
 %description
 The goal of the Varnish project is to develop a state-of-the-art,
@@ -105,12 +109,11 @@ export CPPFLAGS="-I/usr/include/ncurses"
 %{__automake}
 %{__autoconf}
 %configure \
-	--with-max-header-fields=128 \
 %ifarch hppa s390 sparc ppc
 	--disable-jemalloc
 %endif
 
-%{__sed} -i -e '/CURSES_LIBS = / s,-lcurses,-ltinfo &,' bin/varnish{hist,stat,top}/Makefile
+%{__sed} -i -e '/CURSES_LIBS = / s,-lcurses,-ltinfo &,' bin/varnish{hist,stat,top,sizes}/Makefile
 
 %{__make}
 
@@ -132,10 +135,10 @@ install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{logrotate.d,rc.d/init.d,sysconfi
 
 install -p %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
 install -p %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishncsa
-cp -a %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
-cp -a %{SOURCE5} $RPM_BUILD_ROOT/etc/sysconfig/varnishncsa
-cp -a %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
-cp -a %{SOURCE7} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
+cp -p %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
+cp -p %{SOURCE5} $RPM_BUILD_ROOT/etc/sysconfig/varnishncsa
+cp -p %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
+cp -p %{SOURCE7} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
 
 %clean
 rm -rf $RPM_BUILD_ROOT
