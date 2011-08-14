@@ -3,7 +3,8 @@
 # - hungs ac builders: tests/a00009.vtc
 
 # Conditional build:
-%bcond_without	tests		# build without tests. binds daemon on 127.0.0.1 9080, 9081, 9001 ports
+%bcond_without	doc		# build documentation
+%bcond_without	tests	# build without tests. binds daemon on 127.0.0.1 9080, 9081, 9001 ports
 
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
@@ -25,11 +26,17 @@ Patch0:		%{name}-build.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
-BuildRequires:	groff
 BuildRequires:	libstdc++-devel
 BuildRequires:	libtool >= 2:1.5
-BuildRequires:    rpmbuild(macros) >= 1.583
 BuildRequires:	ncurses-devel
+BuildRequires:	pcre-devel
+BuildRequires:	pkgconfig
+BuildRequires:	rpmbuild(macros) >= 1.583
+%if %{with doc}
+BuildRequires:	docutils
+BuildRequires:	groff
+BuildRequires:	libxslt-progs
+%endif
 Requires(postun):	/usr/sbin/groupdel
 Requires(postun):	/usr/sbin/userdel
 Requires(pre):	/bin/id
