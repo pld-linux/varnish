@@ -184,9 +184,26 @@ fi
 %attr(754,root,root) /etc/rc.d/init.d/varnish
 %attr(754,root,root) /etc/rc.d/init.d/varnishncsa
 %attr(755,root,root) %{_sbindir}/varnishd
-%attr(755,root,root) %{_bindir}/varnish*
-%{_mandir}/man1/*
-%{_mandir}/man7/*
+%attr(755,root,root) %{_bindir}/varnishadm
+%attr(755,root,root) %{_bindir}/varnishhist
+%attr(755,root,root) %{_bindir}/varnishlog
+%attr(755,root,root) %{_bindir}/varnishncsa
+%attr(755,root,root) %{_bindir}/varnishreplay
+%attr(755,root,root) %{_bindir}/varnishsizes
+%attr(755,root,root) %{_bindir}/varnishstat
+%attr(755,root,root) %{_bindir}/varnishtest
+%attr(755,root,root) %{_bindir}/varnishtop
+%{_mandir}/man1/varnishadm.1*
+%{_mandir}/man1/varnishd.1*
+%{_mandir}/man1/varnishhist.1*
+%{_mandir}/man1/varnishlog.1*
+%{_mandir}/man1/varnishncsa.1*
+%{_mandir}/man1/varnishreplay.1*
+%{_mandir}/man1/varnishsizes.1*
+%{_mandir}/man1/varnishstat.1*
+%{_mandir}/man1/varnishtest.1*
+%{_mandir}/man1/varnishtop.1*
+%{_mandir}/man7/vcl.7*
 %dir /var/lib/varnish
 %dir /var/run/varnish
 
@@ -195,18 +212,31 @@ fi
 
 %files libs
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/libvarnish*.so.*.*.*
-%attr(755,root,root) %ghost %{_libdir}/libvarnish*.so.1
+%attr(755,root,root) %{_libdir}/libvarnish.so.*.*.*
+%ghost %{_libdir}/libvarnish.so.1
+%attr(755,root,root) %{_libdir}/libvarnishapi.so.*.*.*
+%ghost %{_libdir}/libvarnishapi.so.1
+%attr(755,root,root) %{_libdir}/libvarnishcompat.so.*.*.*
+%ghost %{_libdir}/libvarnishcompat.so.1
 %attr(755,root,root) %{_libdir}/libvcl.so.*.*.*
-%attr(755,root,root) %ghost %{_libdir}/libvcl.so.1
+%ghost %{_libdir}/libvcl.so.1
 
 %files devel
 %defattr(644,root,root,755)
 %{_includedir}/varnish
-%attr(755,root,root) %{_libdir}/*.so
-%{_libdir}/*.la
-%{_pkgconfigdir}/*.pc
+%{_libdir}/libvarnish.la
+%{_libdir}/libvarnish.so
+%{_libdir}/libvarnishapi.la
+%{_libdir}/libvarnishapi.so
+%{_libdir}/libvarnishcompat.la
+%{_libdir}/libvarnishcompat.so
+%{_libdir}/libvcl.la
+%{_libdir}/libvcl.so
+%{_pkgconfigdir}/varnishapi.pc
 
 %files static
 %defattr(644,root,root,755)
-%{_libdir}/*.a
+%{_libdir}/libvarnish.a
+%{_libdir}/libvarnishapi.a
+%{_libdir}/libvarnishcompat.a
+%{_libdir}/libvcl.a
