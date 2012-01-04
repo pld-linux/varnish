@@ -1,0 +1,11 @@
+--- varnish-3.0.2/configure.ac~	2011-10-24 10:25:13.000000000 +0300
++++ varnish-3.0.2/configure.ac	2011-10-30 11:45:58.270940488 +0200
+@@ -540,6 +540,8 @@
+ if test "$ac_cv_env_VCC_CC_set" = "set"; then
+ 	VCC_CC="$ac_cv_env_VCC_CC_value"
+ else
++	# cleanup "ccache" from compiler as we don't want end user varnish to use ccache if we used one at compile time
++	PTHREAD_CC=${PTHREAD_CC#ccache }
+ 	case $target in
+ 	*-*-solaris*)
+ 		case $PTHREAD_CC in

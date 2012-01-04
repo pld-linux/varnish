@@ -8,6 +8,7 @@ NFILES=131072
 # Maximum locked memory size (for ulimit -l)
 # Used for locking the shared memory log in memory.  If you increase log size,
 # you need to increase this number as well
+# Default log size is 82MB + header
 MEMLOCK=82000
 
 # Main configuration file. You probably want to change it :)
@@ -34,6 +35,9 @@ VARNISH_LISTEN_PORT=6081
 # Telnet admin interface listen address and port
 VARNISH_ADMIN_LISTEN_ADDRESS=127.0.0.1
 VARNISH_ADMIN_LISTEN_PORT=6082
+
+# Shared secret file for admin interface. Disable to use none.
+VARNISH_SECRET_FILE=/etc/varnish/secret
 
 # The minimum number of worker threads to start
 VARNISH_MIN_THREADS=1

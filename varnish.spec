@@ -1,6 +1,7 @@
 # TODO
 # - make tests use secure dir, not /tmp, see varnish-2.0.6/bin/varnishtest
 # - hungs ac builders: tests/a00009.vtc
+# -S support
 
 # Conditional build:
 %bcond_without	doc		# build documentation
@@ -9,12 +10,12 @@
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
-Version:	2.1.5
-Release:	2
+Version:	3.0.2
+Release:	1.1
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://repo.varnish-cache.org/source/%{name}-%{version}.tar.gz
-# Source0-md5:	2d2f227da36a2a240c475304c717b8e3
+# Source0-md5:	c8eae0aabbe66b6daabdf3a1f58cd47a
 Source1:	%{name}.init
 Source3:	%{name}ncsa.init
 Source4:	%{name}.sysconfig
@@ -22,7 +23,7 @@ Source5:	%{name}ncsa.sysconfig
 Source6:	%{name}.logrotate
 Source7:	%{name}.conf
 #Patch100:	branch.diff
-Patch0:		%{name}-build.patch
+Patch0:		no-ccache.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
@@ -106,7 +107,7 @@ Statyczna biblioteka varnish.
 
 %build
 export CPPFLAGS="-I/usr/include/ncurses"
-%{__aclocal}
+%{__aclocal} -I m4
 %{__libtoolize}
 %{__autoheader}
 %{__automake}
@@ -142,6 +143,9 @@ cp -p %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
 cp -p %{SOURCE5} $RPM_BUILD_ROOT/etc/sysconfig/varnishncsa
 cp -p %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
 cp -p %{SOURCE7} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
+
+%{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/*.la
+%{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/vmods/*.la
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -193,6 +197,13 @@ fi
 %attr(755,root,root) %{_bindir}/varnishstat
 %attr(755,root,root) %{_bindir}/varnishtest
 %attr(755,root,root) %{_bindir}/varnishtop
+%dir %{_libdir}/%{name}
+%attr(755,root,root) %{_libdir}/%{name}/libvarnish.so
+%attr(755,root,root) %{_libdir}/%{name}/libvarnishcompat.so
+%attr(755,root,root) %{_libdir}/%{name}/libvcl.so
+%attr(755,root,root) %{_libdir}/%{name}/libvgz.so
+%dir %{_libdir}/%{name}/vmods
+%attr(755,root,root) %{_libdir}/%{name}/vmods/libvmod_std.so
 %{_mandir}/man1/varnishadm.1*
 %{_mandir}/man1/varnishd.1*
 %{_mandir}/man1/varnishhist.1*
@@ -203,6 +214,9 @@ fi
 %{_mandir}/man1/varnishstat.1*
 %{_mandir}/man1/varnishtest.1*
 %{_mandir}/man1/varnishtop.1*
+%{_mandir}/man3/vmod_std.3*
+%{_mandir}/man7/varnish-cli.7*
+%{_mandir}/man7/varnish-counters.7*
 %{_mandir}/man7/vcl.7*
 %dir /var/lib/varnish
 %dir /var/run/varnish
@@ -212,31 +226,21 @@ fi
 
 %files libs
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/libvarnish.so.*.*.*
-%ghost %{_libdir}/libvarnish.so.1
 %attr(755,root,root) %{_libdir}/libvarnishapi.so.*.*.*
 %ghost %{_libdir}/libvarnishapi.so.1
-%attr(755,root,root) %{_libdir}/libvarnishcompat.so.*.*.*
-%ghost %{_libdir}/libvarnishcompat.so.1
-%attr(755,root,root) %{_libdir}/libvcl.so.*.*.*
-%ghost %{_libdir}/libvcl.so.1
 
 %files devel
 %defattr(644,root,root,755)
 %{_includedir}/varnish
-%{_libdir}/libvarnish.la
-%{_libdir}/libvarnish.so
 %{_libdir}/libvarnishapi.la
 %{_libdir}/libvarnishapi.so
-%{_libdir}/libvarnishcompat.la
-%{_libdir}/libvarnishcompat.so
-%{_libdir}/libvcl.la
-%{_libdir}/libvcl.so
 %{_pkgconfigdir}/varnishapi.pc
 
 %files static
 %defattr(644,root,root,755)
-%{_libdir}/libvarnish.a
 %{_libdir}/libvarnishapi.a
-%{_libdir}/libvarnishcompat.a
-%{_libdir}/libvcl.a
+%{_libdir}/%{name}/libvarnish.a
+%{_libdir}/%{name}/libvarnishcompat.a
+%{_libdir}/%{name}/libvcl.a
+%{_libdir}/%{name}/libvgz.a
+%{_libdir}/%{name}/vmods/libvmod_std.a
