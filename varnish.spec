@@ -117,8 +117,6 @@ export CPPFLAGS="-I/usr/include/ncurses"
 	--disable-jemalloc
 %endif
 
-%{__sed} -i -e '/CURSES_LIBS = / s,-lcurses,-ltinfo &,' bin/varnish{hist,stat,top,sizes}/Makefile
-
 %{__make}
 
 %if %{with tests}
