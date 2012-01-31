@@ -22,6 +22,7 @@ Source4:	%{name}.sysconfig
 Source5:	%{name}ncsa.sysconfig
 Source6:	%{name}.logrotate
 Source7:	%{name}.conf
+Source8:	%{name}.tmpfiles
 #Patch100:	branch.diff
 Patch0:		no-ccache.patch
 URL:		http://www.varnish-cache.org/
@@ -133,7 +134,8 @@ rm -rf $RPM_BUILD_ROOT
 
 # make dirs after make install to know which ones needs spec and which ones make install
 install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{logrotate.d,rc.d/init.d,sysconfig},/var/{run,lib}/varnish} \
-	$RPM_BUILD_ROOT/var/log/{archive/,}varnish
+	$RPM_BUILD_ROOT/var/log/{archive/,}varnish \
+	$RPM_BUILD_ROOT/usr/lib/tmpfiles.d
 
 install -p %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
 install -p %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishncsa
@@ -141,6 +143,8 @@ cp -p %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
 cp -p %{SOURCE5} $RPM_BUILD_ROOT/etc/sysconfig/varnishncsa
 cp -p %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
 cp -p %{SOURCE7} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
+
+install %{SOURCE8} $RPM_BUILD_ROOT/usr/lib/tmpfiles.d/%{name}.conf
 
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/*.la
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/vmods/*.la
@@ -218,6 +222,7 @@ fi
 %{_mandir}/man7/vcl.7*
 %dir /var/lib/varnish
 %dir /var/run/varnish
+/usr/lib/tmpfiles.d/%{name}.conf
 
 %dir %attr(751,root,root) /var/log/varnish
 %dir %attr(750,root,root) /var/log/archive/varnish
