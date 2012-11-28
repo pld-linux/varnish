@@ -47,8 +47,9 @@ fi
 varnishadm() {
 	# default to "help" with no args
 	[ $# -eq 0 ] && set -- help
-	/usr/bin/varnishadm -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} "$@"
+	/usr/bin/varnishadm -T ${VARNISH_ADMIN_LISTEN_ADDRESS}:${VARNISH_ADMIN_LISTEN_PORT} ${VARNISH_SECRET_FILE:+-S ${VARNISH_SECRET_FILE}} "$@"
 }
+
 # for simplier code
 vcl_load() {
 	varnishadm vcl.load "$@"

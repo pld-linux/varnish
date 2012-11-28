@@ -1,7 +1,6 @@
 # TODO
 # - make tests use secure dir, not /tmp, see varnish-2.0.6/bin/varnishtest
 # - hungs ac builders: tests/a00009.vtc
-# -S support
 
 # Conditional build:
 %bcond_without	doc		# build documentation
@@ -32,7 +31,7 @@ BuildRequires:	libtool >= 2:1.5
 BuildRequires:	ncurses-devel
 BuildRequires:	pcre-devel
 BuildRequires:	pkgconfig
-BuildRequires:	rpmbuild(macros) >= 1.583
+BuildRequires:	rpmbuild(macros) >= 1.647
 %if %{with doc}
 BuildRequires:	docutils
 BuildRequires:	groff
@@ -134,14 +133,15 @@ rm -rf $RPM_BUILD_ROOT
 # make dirs after make install to know which ones needs spec and which ones make install
 install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{logrotate.d,rc.d/init.d,sysconfig},/var/{run,lib}/varnish} \
 	$RPM_BUILD_ROOT/var/log/{archive/,}varnish \
-	$RPM_BUILD_ROOT/usr/lib/tmpfiles.d
+	$RPM_BUILD_ROOT%{systemdtmpfilesdir}
 
 install -p %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
 install -p %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishncsa
 cp -p %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
 cp -p %{SOURCE5} $RPM_BUILD_ROOT/etc/sysconfig/varnishncsa
 cp -p %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
-cp -p %{SOURCE8} $RPM_BUILD_ROOT/usr/lib/tmpfiles.d/%{name}.conf
+cp -p %{SOURCE8} $RPM_BUILD_ROOT%{systemdtmpfilesdir}/%{name}.conf
+touch $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/secret
 
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/*.la
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/vmods/*.la
@@ -179,10 +179,11 @@ fi
 %files
 %defattr(644,root,root,755)
 %doc LICENSE README ChangeLog etc/*.vcl
-%dir %{_sysconfdir}/%{name}
+%dir %attr(750,root,root) %{_sysconfdir}/%{name}
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/default.vcl
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnishncsa
+%ghost %attr(600,root,root) %{_sysconfdir}/%{name}/secret
 %attr(640,root,root) %config(noreplace) %verify(not md5 mtime size) /etc/logrotate.d/varnish
 %attr(754,root,root) /etc/rc.d/init.d/varnish
 %attr(754,root,root) /etc/rc.d/init.d/varnishncsa
@@ -219,7 +220,7 @@ fi
 %{_mandir}/man7/vcl.7*
 %dir /var/lib/varnish
 %dir /var/run/varnish
-/usr/lib/tmpfiles.d/%{name}.conf
+%{systemdtmpfilesdir}/%{name}.conf
 
 %dir %attr(751,root,root) /var/log/varnish
 %dir %attr(750,root,root) /var/log/archive/varnish
