@@ -11,7 +11,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	3.0.3
-Release:	1
+Release:	2
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://repo.varnish-cache.org/source/%{name}-%{version}.tar.gz
@@ -21,7 +21,6 @@ Source3:	%{name}ncsa.init
 Source4:	%{name}.sysconfig
 Source5:	%{name}ncsa.sysconfig
 Source6:	%{name}.logrotate
-Source7:	%{name}.conf
 Source8:	%{name}.tmpfiles
 #Patch100:	branch.diff
 Patch0:		no-ccache.patch
@@ -142,9 +141,7 @@ install -p %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishncsa
 cp -p %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
 cp -p %{SOURCE5} $RPM_BUILD_ROOT/etc/sysconfig/varnishncsa
 cp -p %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
-cp -p %{SOURCE7} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
-
-install %{SOURCE8} $RPM_BUILD_ROOT/usr/lib/tmpfiles.d/%{name}.conf
+cp -p %{SOURCE8} $RPM_BUILD_ROOT/usr/lib/tmpfiles.d/%{name}.conf
 
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/*.la
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/vmods/*.la
