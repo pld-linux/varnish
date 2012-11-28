@@ -31,6 +31,7 @@ BuildRequires:	groff
 BuildRequires:	libstdc++-devel
 BuildRequires:	libtool >= 2:1.5
 BuildRequires:	ncurses-devel
+BuildRequires:	rpmbuild(macros) >= 1.647
 Requires(postun):	/usr/sbin/groupdel
 Requires(postun):	/usr/sbin/userdel
 Requires(pre):	/bin/id
@@ -45,6 +46,8 @@ Suggests:	vim-syntax-vcl
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_localstatedir	/var/run
+
+%define		skip_post_check_so	libvcl.so.1.0.0
 
 %description
 The goal of the Varnish project is to develop a state-of-the-art,
@@ -131,7 +134,7 @@ rm -rf $RPM_BUILD_ROOT
 # make dirs after make install to know which ones needs spec and which ones make install
 install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{logrotate.d,rc.d/init.d,sysconfig},/var/{run,lib}/varnish} \
 	$RPM_BUILD_ROOT/var/log/{archive/,}varnish \
-	$RPM_BUILD_ROOT/usr/lib/tmpfiles.d
+	$RPM_BUILD_ROOT%{systemdtmpfilesdir}
 
 install -p %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
 install -p %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishncsa
@@ -139,7 +142,7 @@ cp -a %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
 cp -a %{SOURCE5} $RPM_BUILD_ROOT/etc/sysconfig/varnishncsa
 cp -a %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
 cp -a %{SOURCE7} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/default.vcl
-cp -p %{SOURCE8} $RPM_BUILD_ROOT/usr/lib/tmpfiles.d/%{name}.conf
+cp -p %{SOURCE8} $RPM_BUILD_ROOT%{systemdtmpfilesdir}/%{name}.conf
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -187,7 +190,7 @@ fi
 %{_mandir}/man7/*
 %dir /var/lib/varnish
 %dir /var/run/varnish
-/usr/lib/tmpfiles.d/%{name}.conf
+%{systemdtmpfilesdir}/%{name}.conf
 
 %dir %attr(751,root,root) /var/log/varnish
 %dir %attr(750,root,root) /var/log/archive/varnish
