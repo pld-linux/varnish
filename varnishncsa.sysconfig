@@ -11,3 +11,6 @@ LOG_BACKEND=no
 
 # Include log entries which result from communication with a client.
 LOG_CLIENT=yes
+
+# extra options to varnishncsa
+VARNISHNCSA_OPTS=
