@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# varnishncsa	Control the varnish nsca logging daemon
+# varnishncsa	Control the varnish ncsa logging daemon
 #
 # chkconfig:	345 90 10
 #
@@ -8,8 +8,6 @@
 #
 # processname:	varnishncsa
 # pidfile: /var/run/varnish/varnishncsa.pid
-#
-# $Id$
 
 # Source function library
 . /etc/rc.d/init.d/functions
@@ -48,7 +46,7 @@ start() {
 	fi
 
 	msg_starting "Varnish NCSA logging daemon"
-	daemon --pidfile $pidfile /usr/bin/varnishncsa -a -w $logfile -D -P $pidfile $opts
+	daemon --pidfile $pidfile /usr/bin/varnishncsa -a -w $logfile -D -P $pidfile $opts $VARNISHNCSA_OPTS
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/varnishncsa
 }
