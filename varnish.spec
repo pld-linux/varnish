@@ -29,6 +29,7 @@ BuildRequires:	autoconf
 BuildRequires:	automake
 BuildRequires:	groff
 BuildRequires:	libstdc++-devel
+BuildRequires:	sed >= 4.0
 BuildRequires:	libtool >= 2:1.5
 BuildRequires:	ncurses-devel
 BuildRequires:	rpmbuild(macros) >= 1.647
@@ -101,6 +102,8 @@ Statyczna biblioteka varnish.
 %patch100 -p0
 %patch0 -p1
 
+%{__sed} -i -e 's/AM_CONFIG_HEADER/AC_CONFIG_HEADERS/' configure.ac
+%{__sed} -i -e 's,$(srcdir)/,,' bin/varnishtest/Makefile.am
 
 %build
 export CPPFLAGS="-I/usr/include/ncurses"
