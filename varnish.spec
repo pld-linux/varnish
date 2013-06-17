@@ -9,12 +9,12 @@
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
-Version:	3.0.3
-Release:	3
+Version:	3.0.4
+Release:	1
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://repo.varnish-cache.org/source/%{name}-%{version}.tar.gz
-# Source0-md5:	714310c83fdbd2061d897dacd3f63d8b
+# Source0-md5:	a130ce9c3504b9603a46542635e18701
 Source1:	%{name}.init
 Source3:	%{name}ncsa.init
 Source4:	%{name}.sysconfig
