@@ -10,7 +10,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	2.0.6
-Release:	6
+Release:	7
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://downloads.sourceforge.net/varnish/%{name}-%{version}.tar.gz
@@ -24,6 +24,7 @@ Source7:	%{name}.conf
 Source8:	%{name}.tmpfiles
 Patch100:	branch.diff
 Patch0:		%{name}-build.patch
+Patch1:		http://users.linpro.no/ingvar/varnish/varnish.fix_CVE-2013-4484.patch.txt
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
@@ -101,6 +102,7 @@ Statyczna biblioteka varnish.
 %setup -q
 %patch100 -p0
 %patch0 -p1
+%patch1 -p1
 
 %{__sed} -i -e 's/AM_CONFIG_HEADER/AC_CONFIG_HEADERS/' configure.ac
 %{__sed} -i -e 's,$(srcdir)/,,' bin/varnishtest/Makefile.am
