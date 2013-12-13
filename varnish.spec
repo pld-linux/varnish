@@ -10,7 +10,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	2.0.6
-Release:	7
+Release:	8
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://downloads.sourceforge.net/varnish/%{name}-%{version}.tar.gz
@@ -24,16 +24,18 @@ Source7:	%{name}.conf
 Source8:	%{name}.tmpfiles
 Patch100:	branch.diff
 Patch0:		%{name}-build.patch
-Patch1:		http://users.linpro.no/ingvar/varnish/varnish.fix_CVE-2013-4484.patch.txt
+Patch1:		http://users.linpro.no/ingvar/varnish/%{name}.fix_CVE-2013-4484.patch.txt
+Patch2:		system-jemalloc.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
 BuildRequires:	groff
+BuildRequires:	jemalloc-devel
 BuildRequires:	libstdc++-devel
-BuildRequires:	sed >= 4.0
 BuildRequires:	libtool >= 2:1.5
 BuildRequires:	ncurses-devel
 BuildRequires:	rpmbuild(macros) >= 1.647
+BuildRequires:	sed >= 4.0
 Requires(postun):	/usr/sbin/groupdel
 Requires(postun):	/usr/sbin/userdel
 Requires(pre):	/bin/id
@@ -50,6 +52,10 @@ BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 %define		_localstatedir	/var/run
 
 %define		skip_post_check_so	libvcl.so.1.0.0
+
+# for -ljemalloc to stay
+# FIXME: how to libjemalloc linked without this hack?
+%define		filterout_ld	-Wl,--as-needed
 
 %description
 The goal of the Varnish project is to develop a state-of-the-art,
@@ -103,6 +109,7 @@ Statyczna biblioteka varnish.
 %patch100 -p0
 %patch0 -p1
 %patch1 -p1
+%patch2 -p1
 
 %{__sed} -i -e 's/AM_CONFIG_HEADER/AC_CONFIG_HEADERS/' configure.ac
 %{__sed} -i -e 's,$(srcdir)/,,' bin/varnishtest/Makefile.am
