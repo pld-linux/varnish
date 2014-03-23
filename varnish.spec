@@ -27,12 +27,12 @@ URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
 BuildRequires:	libstdc++-devel
-BuildRequires:	sed >= 4.0
 BuildRequires:	libtool >= 2:1.5
 BuildRequires:	ncurses-devel
 BuildRequires:	pcre-devel
 BuildRequires:	pkgconfig
 BuildRequires:	rpmbuild(macros) >= 1.647
+BuildRequires:	sed >= 4.0
 %if %{with doc}
 BuildRequires:	docutils
 BuildRequires:	groff
@@ -100,6 +100,14 @@ Static varnish library.
 %description static -l pl.UTF-8
 Statyczna biblioteka varnish.
 
+%package source
+Summary:	Source code of Varnish for building VMODs
+Group:		Documentation
+Requires:	%{name}-devel = %{version}-%{release}
+
+%description source
+Source code of Varnish for building VMODs.
+
 %prep
 %setup -q
 #%patch100 -p0
@@ -107,6 +115,8 @@ Statyczna biblioteka varnish.
 
 %{__sed} -i -e 's/AM_CONFIG_HEADER/AC_CONFIG_HEADERS/' configure.ac
 #%{__sed} -i -e 's,$(srcdir)/,,' bin/varnishtest/Makefile.am
+
+%{__sed} -i -e '1s,^#!.*python,#!%{__python},' lib/libvmod_std/vmod.py
 
 %build
 export CPPFLAGS="-I/usr/include/ncurses"
@@ -129,7 +139,6 @@ export CPPFLAGS="-I/usr/include/ncurses"
 
 %install
 rm -rf $RPM_BUILD_ROOT
-
 %{__make} install \
 	INSTALL="install -p" \
 	DESTDIR=$RPM_BUILD_ROOT
@@ -149,6 +158,24 @@ touch $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/secret
 
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/*.la
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/vmods/*.la
+
+# prepare tree for VMOD build
+install -d $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/{include,bin/{varnishtest,varnishd},lib/libvmod_std}
+for a in $RPM_BUILD_ROOT%{_includedir}/%{name}/*.h; do
+	f=${a#$RPM_BUILD_ROOT}
+	ln -s $f $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/include
+done
+
+# add extra headers
+cp -pn include/*.h $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/include
+cp -p bin/varnishd/*.h $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishd
+
+ln -s %{_bindir}/varnishtest $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishtest
+cp -p lib/libvmod_std/vmod.py $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/lib/libvmod_std
+
+# add pkg config variable for eash access
+%{__sed} -i -e '/^vmoddir/a srcdir=%{_usrsrc}/%{name}-${version}' \
+	$RPM_BUILD_ROOT%{_pkgconfigdir}/varnishapi.pc
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -249,3 +276,7 @@ fi
 %{_libdir}/%{name}/libvcl.a
 %{_libdir}/%{name}/libvgz.a
 %{_libdir}/%{name}/vmods/libvmod_std.a
+
+%files source
+%defattr(644,root,root,755)
+%{_usrsrc}/%{name}-%{version}
