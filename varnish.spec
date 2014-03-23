@@ -171,6 +171,7 @@ cp -pn include/*.h $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/include
 cp -p bin/varnishd/*.h $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishd
 
 ln -s %{_bindir}/varnishtest $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishtest
+ln -s %{_sbindir}/varnishd $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishd
 cp -p lib/libvmod_std/vmod.py $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/lib/libvmod_std
 
 # add pkg config variable for eash access
