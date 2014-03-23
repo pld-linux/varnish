@@ -174,7 +174,7 @@ ln -s %{_bindir}/varnishtest $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/va
 cp -p lib/libvmod_std/vmod.py $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/lib/libvmod_std
 
 # add pkg config variable for eash access
-%{__sed} -i -e '/^vmoddir/a srcdir=%{_usrsrc}/%{name}-${version}' \
+%{__sed} -i -e '/^vmoddir/a srcdir=%{_usrsrc}/%{name}-%{version}' \
 	$RPM_BUILD_ROOT%{_pkgconfigdir}/varnishapi.pc
 
 %clean
