@@ -27,7 +27,7 @@ URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
 BuildRequires:	libstdc++-devel
-BuildRequires:	libtool >= 2:1.5
+BuildRequires:	libtool >= 2:2.0
 BuildRequires:	ncurses-devel
 BuildRequires:	pcre-devel
 BuildRequires:	pkgconfig
