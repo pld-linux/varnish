@@ -165,14 +165,15 @@ touch $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/secret
 %if %{with source}
 # prepare tree for VMOD build
 install -d $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/{include,bin/{varnishtest,varnishd},lib/libvmod_std}
-for a in $RPM_BUILD_ROOT%{_includedir}/%{name}/*.h; do
-	f=${a#$RPM_BUILD_ROOT}
-	ln -s $f $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/include
-done
 
 # add extra headers
 cp -pn include/*.h $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/include
 cp -p bin/varnishd/*.h $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishd
+
+for a in $RPM_BUILD_ROOT%{_includedir}/%{name}/*.h; do
+	f=${a#$RPM_BUILD_ROOT}
+	ln -sf $f $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/include
+done
 
 ln -s %{_bindir}/varnishtest $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishtest
 ln -s %{_sbindir}/varnishd $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishd
