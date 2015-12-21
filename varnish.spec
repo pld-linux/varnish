@@ -11,7 +11,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	3.0.5
-Release:	2
+Release:	3
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	http://repo.varnish-cache.org/source/%{name}-%{version}.tar.gz
@@ -24,6 +24,7 @@ Source6:	%{name}.logrotate
 Source8:	%{name}.tmpfiles
 #Patch100:	branch.diff
 Patch0:		no-ccache.patch
+Patch1:		no-sysctl.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
@@ -113,6 +114,7 @@ Source code of Varnish for building VMODs.
 %setup -q
 #%patch100 -p0
 %patch0 -p1
+%patch1 -p1
 
 %{__sed} -i -e 's/AM_CONFIG_HEADER/AC_CONFIG_HEADERS/' configure.ac
 #%{__sed} -i -e 's,$(srcdir)/,,' bin/varnishtest/Makefile.am

@@ -1,0 +1,10 @@
+--- varnish-3.0.5/lib/libjemalloc/jemalloc_linux.c~	2013-12-02 08:47:57.000000000 +0100
++++ varnish-3.0.5/lib/libjemalloc/jemalloc_linux.c	2015-12-21 19:43:26.891965305 +0100
+@@ -177,7 +177,6 @@
+ #include <sys/param.h>
+ #include <sys/time.h>
+ #include <sys/types.h>
+-#include <sys/sysctl.h>
+ #include <sys/uio.h>
+ 
+ #include <errno.h>
