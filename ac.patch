@@ -1,0 +1,9 @@
+--- varnish-3.0.5/configure.ac	2017-04-20 12:10:13.927977904 +0300
++++ varnish-3.0.7/configure.ac	2017-04-20 12:12:07.970236508 +0300
+@@ -4,5 +4,5 @@
+ AC_CONFIG_SRCDIR(include/varnishapi.h)
+-AM_CONFIG_HEADER(config.h)
++AC_CONFIG_HEADERS(config.h)
+ 
+ # save command line CFLAGS for use in VCC_CC (to pass through things like -m64)
+ OCFLAGS="$CFLAGS"
