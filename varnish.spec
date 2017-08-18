@@ -10,12 +10,12 @@
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
-Version:	3.0.7
-Release:	1
+Version:	5.1.3
+Release:	0.1
 License:	BSD
 Group:		Networking/Daemons/HTTP
-Source0:	http://repo.varnish-cache.org/source/%{name}-%{version}.tar.gz
-# Source0-md5:	aa63a7808d775c005d020c41f152b7af
+Source0:	http://varnish-cache.org/_downloads/%{name}-%{version}.tgz
+# Source0-md5:	c35e4b634a75b36f5e2e75b2f0af5a39
 Source1:	%{name}.init
 Source3:	%{name}ncsa.init
 Source4:	%{name}.sysconfig
@@ -24,8 +24,6 @@ Source6:	%{name}.logrotate
 Source8:	%{name}.tmpfiles
 #Patch100:	branch.diff
 Patch0:		no-ccache.patch
-Patch1:		no-sysctl.patch
-Patch2:		ac.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
@@ -115,16 +113,15 @@ Source code of Varnish for building VMODs.
 %setup -q
 #%patch100 -p0
 %patch0 -p1
-%patch1 -p1
-%patch2 -p1
 
-#%{__sed} -i -e 's,$(srcdir)/,,' bin/varnishtest/Makefile.am
-
-%{__sed} -i -e '1s,^#!.*python,#!%{__python},' lib/libvmod_std/vmod.py
+%{__sed} -i -e '1s,^#!.*python,#!%{__python},' \
+	lib/libvarnishapi/generate.py \
+	lib/libvcc/generate.py \
+	lib/libvcc/vmodtool.py
 
 %build
-export CPPFLAGS="-I/usr/include/ncurses"
-%{__aclocal} -I m4
+#export CPPFLAGS="-I/usr/include/ncurses"
+%{__aclocal} -I m4 -I varnish.m4
 %{__libtoolize}
 %{__autoheader}
 %{__automake}
