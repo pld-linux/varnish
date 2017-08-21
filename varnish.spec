@@ -119,14 +119,17 @@ Source code of Varnish for building VMODs.
 	lib/libvcc/generate.py \
 	lib/libvcc/vmodtool.py
 
+# FIXME: how macros from varnish.m4 are supposed to be used for aclocal call?
+cp varnish.m4 acinclude.m4
+
 %build
-#export CPPFLAGS="-I/usr/include/ncurses"
-%{__aclocal} -I m4 -I varnish.m4
+%{__aclocal}
 %{__libtoolize}
 %{__autoheader}
 %{__automake}
 %{__autoconf}
 %configure \
+	--disable-silent-rules \
 %ifarch hppa s390 sparc ppc
 	--disable-jemalloc
 %endif
@@ -144,20 +147,23 @@ rm -rf $RPM_BUILD_ROOT
 	INSTALL="install -p" \
 	DESTDIR=$RPM_BUILD_ROOT
 
+%{__rm} -r $RPM_BUILD_ROOT%{_docdir}/%{name}
+
 # make dirs after make install to know which ones needs spec and which ones make install
-install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{logrotate.d,rc.d/init.d,sysconfig},/var/{run,lib}/varnish} \
+install -d $RPM_BUILD_ROOT{%{_sysconfdir}/%{name},/etc/{logrotate.d,rc.d/init.d,sysconfig},/var/{run,lib}/varnish} \
 	$RPM_BUILD_ROOT/var/log/{archive/,}varnish \
 	$RPM_BUILD_ROOT%{systemdtmpfilesdir}
 
+cp -p etc/example.vcl $RPM_BUILD_ROOT%{_sysconfdir}/varnish/default.vcl
+touch $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/secret
 install -p %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnish
 install -p %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/varnishncsa
 cp -p %{SOURCE4} $RPM_BUILD_ROOT/etc/sysconfig/varnish
 cp -p %{SOURCE5} $RPM_BUILD_ROOT/etc/sysconfig/varnishncsa
 cp -p %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
 cp -p %{SOURCE8} $RPM_BUILD_ROOT%{systemdtmpfilesdir}/%{name}.conf
-touch $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/secret
 
-%{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/*.la
+%{__rm} $RPM_BUILD_ROOT%{_libdir}/libvarnishapi.la
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/vmods/*.la
 
 %if %{with source}
@@ -175,7 +181,6 @@ done
 
 ln -s %{_bindir}/varnishtest $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishtest
 ln -s %{_sbindir}/varnishd $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishd
-cp -p lib/libvmod_std/vmod.py $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/lib/libvmod_std
 
 # add pkg config variable for eash access
 %{__sed} -i -e '/^vmoddir/a srcdir=%{_usrsrc}/%{name}-%{version}' \
@@ -214,7 +219,7 @@ fi
 
 %files
 %defattr(644,root,root,755)
-%doc LICENSE README ChangeLog etc/*.vcl
+%doc LICENSE README.rst ChangeLog etc/*.vcl
 %dir %attr(750,root,root) %{_sysconfdir}/%{name}
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/default.vcl
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
@@ -228,32 +233,32 @@ fi
 %attr(755,root,root) %{_bindir}/varnishhist
 %attr(755,root,root) %{_bindir}/varnishlog
 %attr(755,root,root) %{_bindir}/varnishncsa
-%attr(755,root,root) %{_bindir}/varnishreplay
-%attr(755,root,root) %{_bindir}/varnishsizes
 %attr(755,root,root) %{_bindir}/varnishstat
 %attr(755,root,root) %{_bindir}/varnishtest
 %attr(755,root,root) %{_bindir}/varnishtop
 %dir %{_libdir}/%{name}
-%attr(755,root,root) %{_libdir}/%{name}/libvarnish.so
-%attr(755,root,root) %{_libdir}/%{name}/libvarnishcompat.so
-%attr(755,root,root) %{_libdir}/%{name}/libvcl.so
-%attr(755,root,root) %{_libdir}/%{name}/libvgz.so
 %dir %{_libdir}/%{name}/vmods
 %attr(755,root,root) %{_libdir}/%{name}/vmods/libvmod_std.so
+%attr(755,root,root) %{_libdir}/%{name}/vmods/libvmod_directors.so
+%dir %{_datadir}/%{name}
+%dir %{_datadir}/%{name}/vcl
+%{_datadir}/%{name}/vcl/devicedetect.vcl
 %{_mandir}/man1/varnishadm.1*
 %{_mandir}/man1/varnishd.1*
 %{_mandir}/man1/varnishhist.1*
 %{_mandir}/man1/varnishlog.1*
 %{_mandir}/man1/varnishncsa.1*
-%{_mandir}/man1/varnishreplay.1*
-%{_mandir}/man1/varnishsizes.1*
 %{_mandir}/man1/varnishstat.1*
 %{_mandir}/man1/varnishtest.1*
 %{_mandir}/man1/varnishtop.1*
+%{_mandir}/man3/vmod_directors.3*
 %{_mandir}/man3/vmod_std.3*
 %{_mandir}/man7/varnish-cli.7*
 %{_mandir}/man7/varnish-counters.7*
 %{_mandir}/man7/vcl.7*
+%{_mandir}/man7/vsl-query.7*
+%{_mandir}/man7/vsl.7*
+%{_mandir}/man7/vtc.7*
 %dir /var/lib/varnish
 %dir /var/run/varnish
 %{systemdtmpfilesdir}/%{name}.conf
@@ -269,18 +274,14 @@ fi
 %files devel
 %defattr(644,root,root,755)
 %{_includedir}/varnish
-%{_libdir}/libvarnishapi.la
 %{_libdir}/libvarnishapi.so
+%{_datadir}/%{name}/vmodtool.py
 %{_pkgconfigdir}/varnishapi.pc
+%{_aclocaldir}/varnish-legacy.m4
+%{_aclocaldir}/varnish.m4
 
 %files static
 %defattr(644,root,root,755)
-%{_libdir}/libvarnishapi.a
-%{_libdir}/%{name}/libvarnish.a
-%{_libdir}/%{name}/libvarnishcompat.a
-%{_libdir}/%{name}/libvcl.a
-%{_libdir}/%{name}/libvgz.a
-%{_libdir}/%{name}/vmods/libvmod_std.a
 
 %if %{with source}
 %files source
