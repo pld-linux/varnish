@@ -1,21 +1,18 @@
-# TODO
-# - make tests use secure dir, not /tmp, see varnish-2.0.6/bin/varnishtest
-# - hungs ac builders: tests/a00009.vtc
-
 # Conditional build:
 %bcond_without	doc		# build documentation
-%bcond_without	tests	# build without tests. binds daemon on 127.0.0.1 9080, 9081, 9001 ports
-%bcond_without	source	# build source package
+%bcond_without	tests		# build without tests. binds daemon on 127.0.0.1 9080, 9081, 9001 ports
+%bcond_with	static_libs	# build static libraries
+%bcond_with	source		# build source package
 
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
-Version:	3.0.7
+Version:	9.0.3
 Release:	1
 License:	BSD
 Group:		Networking/Daemons/HTTP
-Source0:	http://repo.varnish-cache.org/source/%{name}-%{version}.tar.gz
-# Source0-md5:	aa63a7808d775c005d020c41f152b7af
+Source0:	https://github.com/varnish/varnish/releases/download/%{name}-%{version}/%{name}-%{version}.tar.gz
+# Source0-md5:	9830a825e8d808544855a521e89783ac
 Source1:	%{name}.init
 Source3:	%{name}ncsa.init
 Source4:	%{name}.sysconfig
@@ -24,8 +21,6 @@ Source6:	%{name}.logrotate
 Source8:	%{name}.tmpfiles
 #Patch100:	branch.diff
 Patch0:		no-ccache.patch
-Patch1:		no-sysctl.patch
-Patch2:		ac.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
@@ -52,6 +47,7 @@ Requires:	gcc
 Requires:	glibc-devel
 Requires:	rc-scripts >= 0.4.1.26
 Suggests:	vim-syntax-vcl
+Obsoletes:	varnish-libvmod-cookie < 9.0
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %define		_localstatedir	/var/run
@@ -115,16 +111,14 @@ Source code of Varnish for building VMODs.
 %setup -q
 #%%patch100 -p0
 %patch -P0 -p1
-%patch -P1 -p1
-%patch -P2 -p1
 
-#%{__sed} -i -e 's,$(srcdir)/,,' bin/varnishtest/Makefile.am
-
-%{__sed} -i -e '1s,^#!.*python,#!%{__python},' lib/libvmod_std/vmod.py
+%{__sed} -i -e '1s,^#!.*python3,#!%{__python3},' \
+	lib/libvcc/vmodtool.py \
+	lib/libvsc/vsctool.py
 
 %build
 export CPPFLAGS="-I/usr/include/ncurses"
-%{__aclocal} -I m4
+%{__aclocal} -I m4 -I .
 %{__libtoolize}
 %{__autoheader}
 %{__automake}
@@ -134,7 +128,7 @@ export CPPFLAGS="-I/usr/include/ncurses"
 	--disable-jemalloc
 %endif
 
-%{__make}
+%{__make} V=1
 
 %if %{with tests}
 %{__make} check \
@@ -144,11 +138,12 @@ export CPPFLAGS="-I/usr/include/ncurses"
 %install
 rm -rf $RPM_BUILD_ROOT
 %{__make} install \
+	V=1 \
 	INSTALL="install -p" \
 	DESTDIR=$RPM_BUILD_ROOT
 
 # make dirs after make install to know which ones needs spec and which ones make install
-install -d $RPM_BUILD_ROOT{%{_sysconfdir},/etc/{logrotate.d,rc.d/init.d,sysconfig},/var/{run,lib}/varnish} \
+install -d $RPM_BUILD_ROOT{%{_sysconfdir}/varnish,/etc/{logrotate.d,rc.d/init.d,sysconfig},/var/{run,lib}/varnish} \
 	$RPM_BUILD_ROOT/var/log/{archive/,}varnish \
 	$RPM_BUILD_ROOT%{systemdtmpfilesdir}
 
@@ -160,7 +155,6 @@ cp -p %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
 cp -p %{SOURCE8} $RPM_BUILD_ROOT%{systemdtmpfilesdir}/%{name}.conf
 touch $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/secret
 
-%{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/*.la
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/vmods/*.la
 
 %if %{with source}
@@ -217,9 +211,8 @@ fi
 
 %files
 %defattr(644,root,root,755)
-%doc LICENSE README ChangeLog etc/*.vcl
+%doc LICENSE README.md ChangeLog etc/*.vcl
 %dir %attr(750,root,root) %{_sysconfdir}/%{name}
-%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/default.vcl
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnish
 %config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/varnishncsa
 %ghost %attr(600,root,root) %{_sysconfdir}/%{name}/secret
@@ -230,33 +223,70 @@ fi
 %attr(755,root,root) %{_bindir}/varnishadm
 %attr(755,root,root) %{_bindir}/varnishhist
 %attr(755,root,root) %{_bindir}/varnishlog
+%attr(755,root,root) %{_bindir}/varnishlog-json
 %attr(755,root,root) %{_bindir}/varnishncsa
-%attr(755,root,root) %{_bindir}/varnishreplay
-%attr(755,root,root) %{_bindir}/varnishsizes
 %attr(755,root,root) %{_bindir}/varnishstat
+%attr(755,root,root) %{_bindir}/varnishstat_help_gen
 %attr(755,root,root) %{_bindir}/varnishtest
 %attr(755,root,root) %{_bindir}/varnishtop
+%attr(755,root,root) %{_bindir}/vtest
 %dir %{_libdir}/%{name}
-%attr(755,root,root) %{_libdir}/%{name}/libvarnish.so
-%attr(755,root,root) %{_libdir}/%{name}/libvarnishcompat.so
-%attr(755,root,root) %{_libdir}/%{name}/libvcl.so
-%attr(755,root,root) %{_libdir}/%{name}/libvgz.so
 %dir %{_libdir}/%{name}/vmods
-%attr(755,root,root) %{_libdir}/%{name}/vmods/libvmod_std.so
+%{_libdir}/%{name}/vmods/libvmod_blob.so
+%{_libdir}/%{name}/vmods/libvmod_cookie.so
+%{_libdir}/%{name}/vmods/libvmod_directors.so
+%{_libdir}/%{name}/vmods/libvmod_h2.so
+%{_libdir}/%{name}/vmods/libvmod_math.so
+%{_libdir}/%{name}/vmods/libvmod_proxy.so
+%{_libdir}/%{name}/vmods/libvmod_purge.so
+%{_libdir}/%{name}/vmods/libvmod_std.so
+%{_libdir}/%{name}/vmods/libvmod_tls.so
+%{_libdir}/%{name}/vmods/libvmod_unix.so
+%{_libdir}/%{name}/vmods/libvmod_vtc.so
+%attr(755,root,root) %dir %{_datadir}/varnish
+%attr(755,root,root) %dir %{_datadir}/varnish/vcc
+%{_datadir}/varnish/vcc/vmod_blob.vcc
+%{_datadir}/varnish/vcc/vmod_cookie.vcc
+%{_datadir}/varnish/vcc/vmod_directors.vcc
+%{_datadir}/varnish/vcc/vmod_h2.vcc
+%{_datadir}/varnish/vcc/vmod_math.vcc
+%{_datadir}/varnish/vcc/vmod_proxy.vcc
+%{_datadir}/varnish/vcc/vmod_purge.vcc
+%{_datadir}/varnish/vcc/vmod_std.vcc
+%{_datadir}/varnish/vcc/vmod_tls.vcc
+%{_datadir}/varnish/vcc/vmod_unix.vcc
+%{_datadir}/varnish/vcc/vmod_vtc.vcc
+%{_datadir}/varnish/vcl/devicedetect.vcl
+%{_datadir}/varnish/vmodtool.py
+%{_datadir}/varnish/vsctool.py
 %{_mandir}/man1/varnishadm.1*
 %{_mandir}/man1/varnishd.1*
 %{_mandir}/man1/varnishhist.1*
 %{_mandir}/man1/varnishlog.1*
 %{_mandir}/man1/varnishncsa.1*
-%{_mandir}/man1/varnishreplay.1*
-%{_mandir}/man1/varnishsizes.1*
 %{_mandir}/man1/varnishstat.1*
 %{_mandir}/man1/varnishtest.1*
 %{_mandir}/man1/varnishtop.1*
+%{_mandir}/man3/vmod_blob.3*
+%{_mandir}/man3/vmod_cookie.3*
+%{_mandir}/man3/vmod_directors.3*
+%{_mandir}/man3/vmod_h2.3*
+%{_mandir}/man3/vmod_math.3*
+%{_mandir}/man3/vmod_proxy.3*
+%{_mandir}/man3/vmod_purge.3*
 %{_mandir}/man3/vmod_std.3*
+%{_mandir}/man3/vmod_unix.3*
+%{_mandir}/man3/vmod_vtc.3*
 %{_mandir}/man7/varnish-cli.7*
 %{_mandir}/man7/varnish-counters.7*
 %{_mandir}/man7/vcl.7*
+%{_mandir}/man7/vcl-backend.7*
+%{_mandir}/man7/vcl-probe.7*
+%{_mandir}/man7/vcl-step.7*
+%{_mandir}/man7/vcl-var.7*
+%{_mandir}/man7/vsl.7*
+%{_mandir}/man7/vsl-query.7*
+%{_mandir}/man7/vtc.7*
 %dir /var/lib/varnish
 %dir /var/run/varnish
 %{systemdtmpfilesdir}/%{name}.conf
@@ -266,8 +296,8 @@ fi
 
 %files libs
 %defattr(644,root,root,755)
-%attr(755,root,root) %{_libdir}/libvarnishapi.so.*.*.*
-%ghost %{_libdir}/libvarnishapi.so.1
+%{_libdir}/libvarnishapi.so.*.*.*
+%ghost %{_libdir}/libvarnishapi.so.3
 
 %files devel
 %defattr(644,root,root,755)
@@ -275,15 +305,14 @@ fi
 %{_libdir}/libvarnishapi.la
 %{_libdir}/libvarnishapi.so
 %{_pkgconfigdir}/varnishapi.pc
+%{_aclocaldir}/varnish-legacy.m4
+%{_aclocaldir}/varnish.m4
 
+%if %{with static_libs}
 %files static
 %defattr(644,root,root,755)
 %{_libdir}/libvarnishapi.a
-%{_libdir}/%{name}/libvarnish.a
-%{_libdir}/%{name}/libvarnishcompat.a
-%{_libdir}/%{name}/libvcl.a
-%{_libdir}/%{name}/libvgz.a
-%{_libdir}/%{name}/vmods/libvmod_std.a
+%endif
 
 %if %{with source}
 %files source
