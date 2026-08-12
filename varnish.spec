@@ -2,7 +2,6 @@
 %bcond_without	doc		# build documentation
 %bcond_without	tests		# build without tests. binds daemon on 127.0.0.1 9080, 9081, 9001 ports
 %bcond_with	static_libs	# build static libraries
-%bcond_with	source		# build source package
 
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
@@ -80,6 +79,7 @@ Summary:	Header files for varnish library
 Summary(pl.UTF-8):	Pliki nagłówkowe biblioteki varnish
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
+Obsoletes:	varnish-source < 9.0
 
 %description devel
 Header files for varnish library.
@@ -98,14 +98,6 @@ Static varnish library.
 
 %description static -l pl.UTF-8
 Statyczna biblioteka varnish.
-
-%package source
-Summary:	Source code of Varnish for building VMODs
-Group:		Documentation
-Requires:	%{name}-devel = %{version}-%{release}
-
-%description source
-Source code of Varnish for building VMODs.
 
 %prep
 %setup -q
@@ -157,28 +149,6 @@ touch $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/secret
 
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/*.la
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/vmods/*.la
-
-%if %{with source}
-# prepare tree for VMOD build
-install -d $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/{include,bin/{varnishtest,varnishd},lib/libvmod_std}
-
-# add extra headers
-cp -pn include/*.h $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/include
-cp -p bin/varnishd/*.h $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishd
-
-for a in $RPM_BUILD_ROOT%{_includedir}/%{name}/*.h; do
-	f=${a#$RPM_BUILD_ROOT}
-	ln -sf $f $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/include
-done
-
-ln -s %{_bindir}/varnishtest $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishtest
-ln -s %{_sbindir}/varnishd $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/bin/varnishd
-cp -p lib/libvmod_std/vmod.py $RPM_BUILD_ROOT%{_usrsrc}/%{name}-%{version}/lib/libvmod_std
-
-# add pkg config variable for eash access
-%{__sed} -i -e '/^vmoddir/a srcdir=%{_usrsrc}/%{name}-%{version}' \
-	$RPM_BUILD_ROOT%{_pkgconfigdir}/varnishapi.pc
-%endif
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -313,10 +283,4 @@ fi
 %files static
 %defattr(644,root,root,755)
 %{_libdir}/libvarnishapi.a
-%endif
-
-%if %{with source}
-%files source
-%defattr(644,root,root,755)
-%{_usrsrc}/%{name}-%{version}
 %endif
