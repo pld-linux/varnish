@@ -8,7 +8,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	9.0.3
-Release:	1
+Release:	2
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	https://github.com/varnish/varnish/releases/download/%{name}-%{version}/%{name}-%{version}.tar.gz
@@ -155,6 +155,7 @@ cp -p %{SOURCE6} $RPM_BUILD_ROOT/etc/logrotate.d/varnish
 cp -p %{SOURCE8} $RPM_BUILD_ROOT%{systemdtmpfilesdir}/%{name}.conf
 touch $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/secret
 
+%{__rm} $RPM_BUILD_ROOT%{_libdir}/*.la
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/vmods/*.la
 
 %if %{with source}
@@ -243,8 +244,8 @@ fi
 %{_libdir}/%{name}/vmods/libvmod_tls.so
 %{_libdir}/%{name}/vmods/libvmod_unix.so
 %{_libdir}/%{name}/vmods/libvmod_vtc.so
-%attr(755,root,root) %dir %{_datadir}/varnish
-%attr(755,root,root) %dir %{_datadir}/varnish/vcc
+%dir %{_datadir}/varnish
+%dir %{_datadir}/varnish/vcc
 %{_datadir}/varnish/vcc/vmod_blob.vcc
 %{_datadir}/varnish/vcc/vmod_cookie.vcc
 %{_datadir}/varnish/vcc/vmod_directors.vcc
@@ -256,9 +257,8 @@ fi
 %{_datadir}/varnish/vcc/vmod_tls.vcc
 %{_datadir}/varnish/vcc/vmod_unix.vcc
 %{_datadir}/varnish/vcc/vmod_vtc.vcc
+%dir %{_datadir}/varnish/vcl
 %{_datadir}/varnish/vcl/devicedetect.vcl
-%{_datadir}/varnish/vmodtool.py
-%{_datadir}/varnish/vsctool.py
 %{_mandir}/man1/varnishadm.1*
 %{_mandir}/man1/varnishd.1*
 %{_mandir}/man1/varnishhist.1*
@@ -301,8 +301,9 @@ fi
 
 %files devel
 %defattr(644,root,root,755)
+%attr(755,root,root) %{_datadir}/varnish/vmodtool.py
+%attr(755,root,root) %{_datadir}/varnish/vsctool.py
 %{_includedir}/varnish
-%{_libdir}/libvarnishapi.la
 %{_libdir}/libvarnishapi.so
 %{_pkgconfigdir}/varnishapi.pc
 %{_aclocaldir}/varnish-legacy.m4
