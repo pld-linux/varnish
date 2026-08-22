@@ -7,7 +7,7 @@ Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
 Version:	9.0.3
-Release:	2
+Release:	3
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	https://github.com/varnish/varnish/releases/download/%{name}-%{version}/%{name}-%{version}.tar.gz
@@ -80,6 +80,9 @@ Summary(pl.UTF-8):	Pliki nagłówkowe biblioteki varnish
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
 Obsoletes:	varnish-source < 9.0
+%if %{without static_libs}
+Obsoletes:	varnish-static < %{version}-%{release}
+%endif
 
 %description devel
 Header files for varnish library.
@@ -116,6 +119,7 @@ export CPPFLAGS="-I/usr/include/ncurses"
 %{__automake}
 %{__autoconf}
 %configure \
+	%{?with_static_libs:--enable-static} \
 %ifarch hppa s390 sparc ppc
 	--disable-jemalloc
 %endif
@@ -149,6 +153,7 @@ touch $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/secret
 
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/*.la
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/%{name}/vmods/*.la
+%{__rm} -r $RPM_BUILD_ROOT%{_docdir}/%{name}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
