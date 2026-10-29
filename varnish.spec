@@ -6,12 +6,12 @@
 Summary:	Varnish - a high-performance HTTP accelerator
 Summary(pl.UTF-8):	Varnish - wydajny akcelerator HTTP
 Name:		varnish
-Version:	9.0.3
-Release:	3
+Version:	9.0.4
+Release:	1
 License:	BSD
 Group:		Networking/Daemons/HTTP
 Source0:	https://github.com/varnish/varnish/releases/download/%{name}-%{version}/%{name}-%{version}.tar.gz
-# Source0-md5:	9830a825e8d808544855a521e89783ac
+# Source0-md5:	0e9266822d4134c1814ea5c81ddc8546
 Source1:	%{name}.init
 Source3:	%{name}ncsa.init
 Source4:	%{name}.sysconfig
@@ -23,17 +23,19 @@ Patch0:		no-ccache.patch
 URL:		http://www.varnish-cache.org/
 BuildRequires:	autoconf
 BuildRequires:	automake
-BuildRequires:	libstdc++-devel
+BuildRequires:	libedit-devel
 BuildRequires:	libtool >= 2:2.0
+BuildRequires:	libunwind-devel
 BuildRequires:	ncurses-devel
-BuildRequires:	pcre-devel
+BuildRequires:	openssl-devel
+BuildRequires:	pcre2-8-devel
 BuildRequires:	pkgconfig
+BuildRequires:	python3
 BuildRequires:	rpmbuild(macros) >= 1.647
 BuildRequires:	sed >= 4.0
 %if %{with doc}
 BuildRequires:	docutils
-BuildRequires:	groff
-BuildRequires:	libxslt-progs
+BuildRequires:	sphinx-pdg
 %endif
 Requires(postun):	/usr/sbin/groupdel
 Requires(postun):	/usr/sbin/userdel
@@ -118,11 +120,11 @@ export CPPFLAGS="-I/usr/include/ncurses"
 %{__autoheader}
 %{__automake}
 %{__autoconf}
+# PLD jemalloc is built with --with-jemalloc-prefix=je_, varnish needs unprefixed symbols
 %configure \
 	%{?with_static_libs:--enable-static} \
-%ifarch hppa s390 sparc ppc
-	--disable-jemalloc
-%endif
+	--without-jemalloc \
+	--with-unwind
 
 %{__make} V=1
 
